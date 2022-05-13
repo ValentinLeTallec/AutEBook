@@ -1,0 +1,15 @@
+[package]
+name = "auto_update_books"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "boop"
+path = "src/main.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+epub = "1.2.3"
+reqwest = "0.11.10"
+rss = "2.0.1"
