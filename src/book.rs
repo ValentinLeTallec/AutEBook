@@ -5,15 +5,15 @@ use std::fmt::Debug;
 use std::fs;
 use std::{path::Path, process::Command};
 
-use crate::source::*;
+use crate::source;
+use crate::source::{FanFicFare, Syndication};
 
 // mod source;
 
 // #[derive(Debug)]
-pub struct Book<'a, T: Syndication + FanFicFare> {
+pub struct Book<'a> {
     path: &'a Path,
-    source: T,
-    rss_url: String,
+    source: Option<Box<dyn FanFicFare>>,
 }
 
 // impl Debug for Book {
@@ -21,19 +21,20 @@ pub struct Book<'a, T: Syndication + FanFicFare> {
 // }
 
 impl<'a> Book<'a> {
-    pub fn new<P: 'a + AsRef<Path>>(path: P) -> Book<'a> {
-        let id: u16 = 52639;
-        let url = get_source(path);
-
-        // Book {
-        //     path: Box::new(path),
-        //     id,
-        //     rss_url: String::new(),
-        // }
-        todo!();
+    pub fn new(path: &'a Path) -> Book<'a> {
+        let source_url = get_source(path);
+        if let Some(source_url) = get_source(path) {
+            Book {
+                path,
+                source: source::get(&source_url),
+            }
+        } else {
+            Book { path, source: None }
+        }
+        // ma
     }
 
-    pub fn update(self) {
+    pub fn update(&self) {
         let output = Command::new("echo")
             .arg("Hello world")
             .output()
@@ -43,12 +44,12 @@ impl<'a> Book<'a> {
         todo!();
     }
 
-    pub fn has_new_chapters(self) -> bool {
+    pub fn has_new_chapters(&self) -> bool {
         todo!();
     }
 }
 
-fn get_source<P: AsRef<Path>>(path: P) -> Option<String> {
+fn get_source(path: &Path) -> Option<String> {
     EpubDoc::new(path).ok()?.mdata("source")
 }
 
@@ -59,13 +60,6 @@ fn get_source<P: AsRef<Path>>(path: P) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_new_book() {
-        let path = Path::new("./tests/ressource/Zogarth - The Primal Hunter.epub");
-        let book = Book::new(path);
-        assert_eq!(book.source.get_syndication_url(), 52639);
-    }
 
     #[test]
     fn test_get_source_ok() {

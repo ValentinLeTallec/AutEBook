@@ -15,7 +15,7 @@ impl Syndication for RoyalRoad {
     }
 }
 impl FanFicFare for RoyalRoad {
-    fn relates_to(url: &str) -> bool {
+    fn relates_to(&self, url: &str) -> bool {
         url.starts_with("https://www.royalroad.com")
     }
 }
@@ -25,8 +25,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_royalroad() {
+    fn test_royalroad_long_url() {
         let source = RoyalRoad::new(" https://www.royalroad.com/fiction/36049/the-primal-hunter");
+        let rss_feed = "https://www.royalroad.com/fiction/syndication/36049";
+        assert_eq!(source.get_syndication_url(), rss_feed);
+    }
+
+    #[test]
+    fn test_royalroad_short_url() {
+        let source = RoyalRoad::new(" https://www.royalroad.com/fiction/36049");
         let rss_feed = "https://www.royalroad.com/fiction/syndication/36049";
         assert_eq!(source.get_syndication_url(), rss_feed);
     }
