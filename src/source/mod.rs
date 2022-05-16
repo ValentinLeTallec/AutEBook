@@ -3,10 +3,6 @@ use epub::doc::EpubDoc;
 use royalroad::RoyalRoad;
 use std::path::Path;
 
-enum Sources {
-    RoyalRoad(RoyalRoad),
-}
-
 pub trait Syndication {
     fn get_syndication_url(&self) -> String;
 }

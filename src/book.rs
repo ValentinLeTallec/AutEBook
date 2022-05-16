@@ -1,7 +1,6 @@
 use rss::Channel;
 use std::error::Error;
-use std::fmt::Debug;
-use std::fs;
+use std::fmt::{Debug, Formatter};
 use std::{path::Path, process::Command};
 
 use crate::source;
@@ -10,28 +9,27 @@ use crate::source::{FanFicFare, Syndication};
 // mod source;
 
 // #[derive(Debug)]
-pub struct Book<'a> {
-    path: &'a Path,
+pub struct Book {
+    path: Box<Path>,
     source: Option<Box<dyn FanFicFare>>,
 }
 
-// impl Debug for Book {
-//     fn
-// }
-
-impl<'a> Book<'a> {
-    pub fn new(path: &'a Path) -> Book<'a> {
+impl Book {
+    pub fn new(path: &Path) -> Book {
         Book {
-            path,
-            source: source::get(path),
+            path: path.to_path_buf().into_boxed_path(),
+            source: source::get(&path),
         }
+    }
+    pub fn print_path(&self) {
+        println!("{}", self.path.to_str().unwrap());
     }
 
     pub fn update(&self) {
         let output = Command::new("fanficfare")
             .arg("--non-interactive")
             .arg("-u")
-            .arg(self.path)
+            .arg(self.path.to_str().unwrap())
             .output()
             .expect("Failed to execute command");
 
@@ -51,6 +49,20 @@ impl<'a> Book<'a> {
         Ok(channel)
     }
 }
+
+impl Debug for Book {
+    fn fmt(&self, _: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        print!(
+            "Book : {{ path: {}, source: {}}}",
+            self.path.display(),
+            if let Some(_) = self.source {
+                true
+            } else {
+                false
+            }
+        );
+        Ok(())
+    }
 }
 
 #[cfg(test)]

@@ -1,49 +1,51 @@
 #![allow(unused)]
-
-use epub::doc::EpubDoc;
-use rss::Channel;
-use std::error::Error;
-use std::fmt::Debug;
-use std::fs;
-use std::{path::Path, process::Command};
-
+// #[no_panic]
 mod book;
 mod source;
 
-const PATH: &str = "/home/valentin/Dropbox/Applications/Dropbox PocketBook";
+use std::fs;
+// use std::path::Path;
+use book::Book;
+use walkdir::WalkDir;
 
-async fn example_feed() -> Result<Channel, Box<dyn Error>> {
-    let content = reqwest::get("http://example.com/feed.xml")
-        .await?
-        .bytes()
-        .await?;
-    let channel = Channel::read_from(&content[..])?;
-    Ok(channel)
-}
-
-fn get_source(path: &Path) -> Option<String> {
-    EpubDoc::new(path).ok()?.mdata("source")
-}
+const PATH: &str = "/home/valentin/Dropbox/Applications/Dropbox PocketBook/Lu";
+const EPUB: &str = "epub";
 
 fn main() {
     let paths = fs::read_dir(PATH).unwrap();
-    // println!("{:?}", fs::read(PATH_TO_FILE).unwrap());
 
-    for path in paths {
-        // println!("Name: {}", path.unwrap().path().display());
-        // let e = path.unwrap().path().display();
-        // let e = get_source(path.unwrap().path());
-        if let Some(s) = get_source(&path.unwrap().path()) {
-            println!("{}", s)
-        }
-        // println!("{}", get_source(path.unwrap().path()).unwrap());
+    let mut books = Vec::new();
+
+    for entry in WalkDir::new(PATH)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .filter(|e| e.path().extension().map_or(false, |v| v == EPUB))
+    {
+        books.push(Book::new(entry.path()));
+        // Book::new(entry.path()).print_path();
+
+        // println!("{}", entry.path().display());
+        // let book = Book::new(entry.path());
     }
-    // println!("{}", paths.count())
+    post_action();
 }
 
 fn post_action() {
-    todo!("Remove empty files");
+    // Remove empty files
+    WalkDir::new(PATH)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .filter(|e| e.metadata().map(|m| m.len() == 0).unwrap_or(false)) // File is empty
+        .for_each(|f| {
+            fs::remove_file(f.path()).expect(&format!(
+                "{} is empty but could not be deleted",
+                f.path().display()
+            ))
+        })
 }
+
 #[cfg(test)]
 mod tests {
     #[test]
