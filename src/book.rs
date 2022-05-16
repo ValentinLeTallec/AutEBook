@@ -1,4 +1,3 @@
-use epub::doc::EpubDoc;
 use rss::Channel;
 use std::error::Error;
 use std::fmt::Debug;
@@ -22,57 +21,44 @@ pub struct Book<'a> {
 
 impl<'a> Book<'a> {
     pub fn new(path: &'a Path) -> Book<'a> {
-        let source_url = get_source(path);
-        if let Some(source_url) = get_source(path) {
-            Book {
-                path,
-                source: source::get(&source_url),
-            }
-        } else {
-            Book { path, source: None }
+        Book {
+            path,
+            source: source::get(path),
         }
-        // ma
     }
 
     pub fn update(&self) {
-        let output = Command::new("echo")
-            .arg("Hello world")
+        let output = Command::new("fanficfare")
+            .arg("--non-interactive")
+            .arg("-u")
+            .arg(self.path)
             .output()
             .expect("Failed to execute command");
 
-        assert_eq!(b"Hello world\n", output.stdout.as_slice());
-        todo!();
+        // assert_eq!(b"Hello world\n", output.stdout.as_slice());
     }
 
     pub fn has_new_chapters(&self) -> bool {
         todo!();
     }
-}
 
-fn get_source(path: &Path) -> Option<String> {
-    EpubDoc::new(path).ok()?.mdata("source")
+    async fn example_feed() -> Result<Channel, Box<dyn Error>> {
+        let content = reqwest::get("http://example.com/feed.xml")
+            .await?
+            .bytes()
+            .await?;
+        let channel = Channel::read_from(&content[..])?;
+        Ok(channel)
+    }
 }
-
-//   https://www.royalroad.com/fiction/36049/the-primal-hunter
-//  https://www.royalroad.com/fiction/syndication/36049
-// Source ->  https://www.royalroad.com/fiction/36049
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_get_source_ok() {
-        let path = Path::new("./tests/ressource/Zogarth - The Primal Hunter.epub");
-        assert_eq!(
-            Some(String::from("https://www.royalroad.com/fiction/36049")),
-            get_source(path)
-        );
-    }
-
-    #[test]
-    fn test_get_source_ko() {
-        assert_eq!(None, get_source(Path::new("./Cargo.toml")));
-        assert_eq!(None, get_source(Path::new("./file_that_do_not_exist")));
+    fn test() {
+        assert!(true);
     }
 }
