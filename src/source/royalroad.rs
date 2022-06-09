@@ -9,7 +9,7 @@ lazy_static! {
 
 #[derive(Debug, PartialEq)]
 pub struct RoyalRoad {
-    id: u16,
+    id: u32,
 }
 
 impl Syndication for RoyalRoad {
@@ -21,7 +21,7 @@ impl Syndication for RoyalRoad {
 impl FanFicFare for RoyalRoad {
     fn new(fiction_url: &str) -> Option<RoyalRoad> {
         let captures = FICTION_URL_PATTERN.captures(fiction_url)?;
-        let id = &captures[1].parse::<u16>().ok()?;
+        let id = &captures[1].parse::<u32>().ok()?;
         Some(RoyalRoad { id: *id })
     }
 }

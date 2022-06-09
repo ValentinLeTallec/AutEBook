@@ -6,29 +6,39 @@ mod source;
 use std::fs;
 // use std::path::Path;
 use book::Book;
+use std::time::{Duration, SystemTime};
 use walkdir::WalkDir;
 
-const PATH: &str = "/home/valentin/Dropbox/Applications/Dropbox PocketBook/Lu";
+const PATH: &str = "/home/valentin/temp/here";
+// const PATH: &str = "/home/valentin/Dropbox/Applications/Dropbox PocketBook";
 const EPUB: &str = "epub";
 
-fn main() {
-    let paths = fs::read_dir(PATH).unwrap();
-
-    let mut books = Vec::new();
-
-    for entry in WalkDir::new(PATH)
+fn get_books(path: &str) -> Vec<Book> {
+    WalkDir::new(PATH)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
         .filter(|e| e.path().extension().map_or(false, |v| v == EPUB))
-    {
-        books.push(Book::new(entry.path()));
-        // Book::new(entry.path()).print_path();
+        .map(|e| Book::new(e.path()))
+        .collect()
+}
 
-        // println!("{}", entry.path().display());
-        // let book = Book::new(entry.path());
-    }
+fn main() {
+    let now = SystemTime::now();
+    let paths = fs::read_dir(PATH).unwrap();
+
+    let books = get_books(PATH);
+    books.into_iter().for_each(|b| b.update());
     post_action();
+
+    match now.elapsed() {
+        Ok(elapsed) => {
+            println!("Time elasped : {}s", elapsed.as_secs());
+        }
+        Err(e) => {
+            println!("Error: {e:?}");
+        }
+    }
 }
 
 fn post_action() {

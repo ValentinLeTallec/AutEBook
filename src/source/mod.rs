@@ -7,6 +7,19 @@ pub trait Syndication {
     fn get_syndication_url(&self) -> String;
 }
 
+pub enum UpdateResult {
+    NotSupported,
+    NotNeeded,
+    Updated(u16),
+    MoreChapterThanSource(u16),
+}
+
+// impl UpdateResult {
+//     fn nb_of_new_chapter(epub_nb: Option<&str>, url_nb: Option<&str>) -> Option<u16> {
+//         Some(url_nb?.parse::<u16>().ok()? - epub_nb?.parse::<u16>().ok()?)
+//     }
+// }
+
 pub trait FanFicFare {
     fn new(url: &str) -> Option<Self>
     where
