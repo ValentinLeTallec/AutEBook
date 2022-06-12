@@ -6,15 +6,48 @@ mod source;
 use std::fs;
 // use std::path::Path;
 use book::Book;
+use clap::Parser;
+use std::fs;
 use std::time::{Duration, SystemTime};
 use walkdir::WalkDir;
 
-const PATH: &str = "/home/valentin/temp/here";
-// const PATH: &str = "/home/valentin/Dropbox/Applications/Dropbox PocketBook";
+// const DEFAULT_PATH: &str = "/home/valentin/temp/here";
+const DEFAULT_PATH: &str = "/home/valentin/Dropbox/Applications/Dropbox PocketBook";
 const EPUB: &str = "epub";
 
+/// A small utility used to update books by levraging FanFicFare
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// Path to the book to update
+    #[clap(short, long)]
+    path: Option<String>,
+
+    /// Path to the directory to update
+    #[clap(short, long, default_value = DEFAULT_PATH)]
+    dir: String,
+
+    /// Number of times to greet
+    #[clap(short, long, default_value_t = 1)]
+    count: u8,
+}
+
+fn main() {
+    let args = Args::parse();
+    println!("{:?}", args);
+    let now = SystemTime::now();
+
+    let books = get_books(&args.dir);
+    books.into_iter().for_each(|b| b.update());
+    post_action(&args.dir);
+
+    if let Ok(dt) = now.elapsed() {
+        println!("Time elasped : {}s", dt.as_secs())
+    }
+}
+
 fn get_books(path: &str) -> Vec<Book> {
-    WalkDir::new(PATH)
+    WalkDir::new(path)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
@@ -23,27 +56,9 @@ fn get_books(path: &str) -> Vec<Book> {
         .collect()
 }
 
-fn main() {
-    let now = SystemTime::now();
-    let paths = fs::read_dir(PATH).unwrap();
-
-    let books = get_books(PATH);
-    books.into_iter().for_each(|b| b.update());
-    post_action();
-
-    match now.elapsed() {
-        Ok(elapsed) => {
-            println!("Time elasped : {}s", elapsed.as_secs());
-        }
-        Err(e) => {
-            println!("Error: {e:?}");
-        }
-    }
-}
-
-fn post_action() {
+fn post_action(path: &str) {
     // Remove empty files
-    WalkDir::new(PATH)
+    WalkDir::new(path)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())

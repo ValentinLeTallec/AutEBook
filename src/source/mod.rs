@@ -7,9 +7,10 @@ pub trait Syndication {
     fn get_syndication_url(&self) -> String;
 }
 
+#[derive(Debug)]
 pub enum UpdateResult {
     NotSupported,
-    NotNeeded,
+    UpToDate,
     Updated(u16),
     MoreChapterThanSource(u16),
 }

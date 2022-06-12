@@ -10,12 +10,12 @@ use std::process::ChildStdout;
 use std::process::{Command, Stdio};
 
 lazy_static! {
-    static ref DO_UPDATE: Regex =
-        Regex::new(r"^Do update - epub\((\d+)\) vs url\((\d+)\)$").unwrap();
     static ref UPDATING: Regex = Regex::new(r"^Updating .*, URL: .*$").unwrap();
     static ref UP_TO_DATE: Regex = Regex::new(r"^.* already contains \d+ chapters\.$").unwrap();
-    static ref STUB: Regex =
-        Regex::new(r"^.* contains \d+ chapters, more than source: \d+\.$").unwrap();
+    static ref DO_UPDATE: Regex =
+        Regex::new(r"^Do update - epub\((\d+)\) vs url\((\d+)\)$").unwrap();
+    static ref MORE_CHAPTER_THAN_SOURCE: Regex =
+        Regex::new(r"^.* contains (\d+) chapters, more than source: (\d+)\.$").unwrap();
 }
 
 use crate::source;
@@ -67,6 +67,7 @@ impl Book {
 
     pub fn call_fanficfare(&self) -> Result<UpdateResult, Box<dyn Error>> {
         match self.source {
+            None => Ok(UpdateResult::NotSupported),
             Some(_) => {
                 let path = self
                     .path
@@ -76,23 +77,42 @@ impl Book {
                 let mut cmd = Command::new("fanficfare")
                     .arg("--non-interactive")
                     .arg("--update-epub")
-                    .arg("--no-output") // TODO : remove line
+                    // .arg("--no-output") // TODO : remove line
                     .arg(path)
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
                     .spawn()?;
 
-                // Book::parse_output(cmd.stdout);
-                //     .wait_with_output()?;
-
-                // let stdin = String::from_utf8(output.stdout)?;
-                let update_result = Book::parse_output(cmd.stdout)
+                let stdout = cmd
+                    .stdout
                     .ok_or(io::Error::from(io::ErrorKind::Unsupported))?;
+                let update_result = BufReader::new(stdout)
+                    .lines()
+                    .filter_map(|line| line.ok())
+                    .filter(|line| UPDATING.captures(&line).is_none())
+                    .filter_map(|line| {
+                        if let Some(c) = UP_TO_DATE.captures(&line) {
+                            return Some(UpdateResult::UpToDate);
+                        }
+                        if let Some(c) = DO_UPDATE.captures(&line) {
+                            let nb_chapter_epub = &c[1].parse::<u16>().ok()?;
+                            let nb_chapter_url = &c[2].parse::<u16>().ok()?;
+                            return Some(UpdateResult::Updated(nb_chapter_url - nb_chapter_epub));
+                        }
+                        if let Some(c) = MORE_CHAPTER_THAN_SOURCE.captures(&line) {
+                            let nb_chapter_epub = &c[1].parse::<u16>().ok()?;
+                            let nb_chapter_url = &c[2].parse::<u16>().ok()?;
+                            return Some(UpdateResult::MoreChapterThanSource(
+                                nb_chapter_epub - nb_chapter_url,
+                            ));
+                        }
+                        None
+                    })
+                    .nth(0)
+                    .ok_or(io::Error::from(io::ErrorKind::Unsupported))?;
+
+                println!("{:?} : {:?}", self, update_result);
                 Ok(update_result)
-            }
-            None => {
-                // println!("need to save it");
-                Ok(UpdateResult::NotSupported)
             }
         }
 
