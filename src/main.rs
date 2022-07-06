@@ -3,16 +3,19 @@
 mod book;
 mod source;
 
-use std::fs;
-// use std::path::Path;
 use book::Book;
 use clap::Parser;
+use indicatif::ProgressBar;
+use indicatif::ProgressIterator;
+use indicatif::ProgressStyle;
 use std::fs;
+use std::sync::mpsc::channel;
 use std::time::{Duration, SystemTime};
+use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
-// const DEFAULT_PATH: &str = "/home/valentin/temp/here";
-const DEFAULT_PATH: &str = "/home/valentin/Dropbox/Applications/Dropbox PocketBook";
+const DEFAULT_PATH: &str = "/home/valentin/temp/here";
+// const DEFAULT_PATH: &str = "/home/valentin/Dropbox/Applications/Dropbox PocketBook";
 const EPUB: &str = "epub";
 
 /// A small utility used to update books by levraging FanFicFare
@@ -27,9 +30,9 @@ struct Args {
     #[clap(short, long, default_value = DEFAULT_PATH)]
     dir: String,
 
-    /// Number of times to greet
-    #[clap(short, long, default_value_t = 1)]
-    count: u8,
+    /// Number of threads to use to update the books
+    #[clap(short, long, default_value_t = 4)]
+    nb_threads: usize,
 }
 
 fn main() {
@@ -37,8 +40,8 @@ fn main() {
     println!("{:?}", args);
     let now = SystemTime::now();
 
-    let books = get_books(&args.dir);
-    books.into_iter().for_each(|b| b.update());
+    let book_files = get_book_files(&args.dir);
+    update_all_books(&args, book_files);
     post_action(&args.dir);
 
     if let Ok(dt) = now.elapsed() {
@@ -46,13 +49,45 @@ fn main() {
     }
 }
 
-fn get_books(path: &str) -> Vec<Book> {
+fn update_all_books(args: &Args, book_files: Vec<walkdir::DirEntry>) {
+    let nb_workers = args.nb_threads;
+    let nb_books = book_files.len();
+
+    let pool = ThreadPool::new(nb_workers);
+    let (sender, receiver) = channel();
+    let bar = ProgressBar::new(nb_books as u64);
+
+    bar.set_style(
+        ProgressStyle::default_bar().template(
+            "{prefix}\n[{elapsed}/{duration}] {wide_bar:.white/orange} {pos:>3}/{len:3} ({percent}%)\n{msg}",
+        ),
+    );
+
+    book_files.into_iter().for_each(|e| {
+        let sender = sender.clone();
+        pool.execute(move || {
+            sender
+                .send(Book::new(e.path()).update())
+                .expect("channel will be there waiting for the pool");
+            // bar.inc(1);
+        });
+    });
+
+    let map: Vec<source::UpdateResult> = receiver
+        .iter()
+        .inspect(|_| bar.inc(1))
+        .inspect(|res| bar.set_prefix(format!("{:?}", res)))
+        .take(nb_books)
+        .collect();
+    // println!("{:#?}", map);
+}
+
+fn get_book_files(path: &str) -> Vec<walkdir::DirEntry> {
     WalkDir::new(path)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
         .filter(|e| e.path().extension().map_or(false, |v| v == EPUB))
-        .map(|e| Book::new(e.path()))
         .collect()
 }
 

@@ -1,0 +1,178 @@
+ 
+╭─ Python takes 8m35s
+╰─λ ~/Dropbox/update_dropbox_books.py -a -n
+FFF: WARNING: 2022-06-09 19:20:20,556: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/spaizzzer - Tree of Aeons (An isekai story).epub) Updated(2022-06-09) more recently than Story(2022-06-07) - Skipping
+FFF: WARNING: 2022-06-09 19:20:24,749: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/powered_by_coffee - Enduring Good _ [The Rationalist's Guide to Cultivation and Cosmic Abominations from Beyond the Stars].epub) Updated(2022-06-09) more recently than Story(2022-06-08) - Skipping
+FFF: WARNING: 2022-06-09 19:22:31,644: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/Zendran - The Great Core's Paradox.epub) Updated(2022-06-09) more recently than Story(2022-06-08) - Skipping
+FFF: WARNING: 2022-06-09 19:22:54,396: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/Vihyungrang - Power Overwhelming.epub) Updated(2022-06-09) more recently than Story(2022-06-05) - Skipping
+FFF: WARNING: 2022-06-09 19:22:56,824: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/Trollmore - Godslayers.epub) Updated(2022-06-09) more recently than Story(2022-06-07) - Skipping
+FFF: WARNING: 2022-06-09 19:23:10,535: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/Thundamoo - Vigor Mortis.epub) Updated(2022-06-09) more recently than Story(2022-06-08) - Skipping
+FFF: WARNING: 2022-06-09 19:23:19,682: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/ThinkTwice - Mark of the Crijik.epub) Updated(2022-06-09) more recently than Story(2022-06-08) - Skipping
+FFF: WARNING: 2022-06-09 19:23:32,266: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/Temple - REND.epub) Updated(2022-06-09) more recently than Story(2022-06-08) - Skipping
+FFF: WARNING: 2022-06-09 19:24:13,133: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/Selkie - Beneath the Dragoneye Moons.epub) Updated(2022-06-09) more recently than Story(2022-06-08) - Skipping
+FFF: WARNING: 2022-06-09 19:25:45,069: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/Rhaegar - Azarinth Healer.epub) Updated(2022-06-09) more recently than Story(2022-06-05) - Skipping
+FFF: WARNING: 2022-06-09 19:26:05,795: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/RavensDagger - Cinnamon Bun.epub) Updated(2022-06-09) more recently than Story(2022-06-08) - Skipping
+FFF: WARNING: 2022-06-09 19:26:18,478: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/NorskDaedalus - The Way Ahead.epub) Updated(2022-06-09) more recently than Story(2022-06-08) - Skipping
+FFF: WARNING: 2022-06-09 19:27:45,935: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/Casualfarmer - Beware Of Chicken.epub) Updated(2022-06-09) more recently than Story(2022-06-08) - Skipping
+FFF: WARNING: 2022-06-09 19:27:59,236: base_writer.py(199): File(/home/valentin/Dropbox/Applications/Dropbox PocketBook/C_Mantis - The Path of Ascension.epub) Updated(2022-06-09) more recently than Story(2022-06-06) - Skipping
+
+
+ ╭─Rust takes 11m1s 
+ ╰─λ ~/Development/Rusty_Stuff/auto_update_books/target/release/boop --dir /home/valentin/Drop
+box/Applications/Dropbox_PocketBook_rust
+Args { path: None, dir: "/home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust", count: 1 }
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Lu/Skyclad Sorceress/a_man_in_black - Skyclad.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Lu/Maari - Queen in the Mud.epub, source: true} : MoreChapterThanSource(25)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Lu/Shirtaloon - He Who Fights With Monsters (Start).epub, source: true} : MoreChapterThanSource(241)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Lu/TigerCannon - A Beginner's Guide to Napping, Sunbathing, and Slaughtering Your Prey.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Skyclad Sorceress/a_man_in_black - Skybound.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Aetherial - Nanocultivation Chronicles_ Trials of Lilijoy.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Agranulocytosis - The Essence of Cultivation.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Alex M - The Hedge Wizard.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Andur - A Demon's Tail.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Atomicallyours - Technomagica.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Bearcat - Archon.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/C_Mantis - The Path of Ascension.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Casualfarmer - Beware Of Chicken.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/CoCop - Burning Stars, Falling Skies.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/CookieCrumble - Tales of an Unlikely Wizard (Isekai LitRPG)_.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/CrystalSquirrel - Grave of the Goddess.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Dlux - Overpowered Magic Goo.epub, source: true} : MoreChapterThanSource(23)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Doctor Zero - Ultra A.I_.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Doctor Zero - Very Yummy Poison.epub, source: true} : MoreChapterThanSource(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Draecath - Evernya Rising.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/DragonOfRochester - When Immortal Ascension Fails Time Travel to Try Again.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Falco A Krenz - The Quantum System.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/HeWhoLooksSkyward - Barbarians.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Hodhandr - Upheaval - The Gentle Apocalypse.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Hoophy97 - Dungeon Engineer.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Illthylian - War Queen.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/InadvisablyCompelled - Blue Core.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Kiwilord - Cultivation Anomaly.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/KrazeKode - The 3rd Law of Cultivation_ Qi=MC^2.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Kuropon - The Runesmith.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Labyrinthia - Labyrinthia's Maze.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Lise Eclaire - The Scuu Paradox.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/LivingSpoon - Arrogant Young Master Template A Variation 4.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Maari - Queen in the Mud.epub, source: true} : MoreChapterThanSource(25)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Macronomicon - Wake of the Ravager.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Mark Arrows - 12 Miles Below.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Materia-Blade - Artificial Jelly.epub, source: true} : MoreChapterThanSource(43)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/MelasD - Salvos.epub, source: true} : Updated(4)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Nighzmarquls - Onward To Providence.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Noddy Sparks - Techno Cultivator.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/NorskDaedalus - The Way Ahead.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Phillip Rayne - Fantasy World Epsilon 30-10.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/RavensDagger - Cinnamon Bun.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/RavensDagger - Fluff.epub, source: true} : Updated(3)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Rhaegar - Azarinth Healer.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/RinoZ - Chrysalis.epub, source: true} : MoreChapterThanSource(98)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/SciFiAddict - The Defective Hermit.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/SealJohnson - Undermind.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Selkie - Beneath the Dragoneye Moons (Start).epub, source: true} : MoreChapterThanSource(251)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Selkie - Beneath the Dragoneye Moons.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Shirtaloon (Travis Deverell) - He Who Fights With Monsters.epub, source: true} : Updated(3)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/SilverLinings - Edge Cases.epub, source: true} : Updated(3)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/TMarkos - Grand Design.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Temple - REND.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/The Random Cat - I'm a brick! But why am I a Humanoid_ [A Non-Level LitRPG with a Humanoid MC full of Magic, Drama and Comedic Undertone].epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/ThinkTwice - Mark of the Crijik.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Thundamoo - Hive Minds Give Good Hugs.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Thundamoo - Vigor Mortis.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/TigerCannon - A Beginner's Guide to Napping, Sunbathing, and Slaughtering Your Prey.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Trollmore - Godslayers.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/TzarNik - Hazardous Debugging_ Reanimation.epub, source: true} : MoreChapterThanSource(20)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Vihyungrang - Lament of the Fallen.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Vihyungrang - Power Overwhelming.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Vihyungrang - Song of the Void.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Vincent Archer - The Infinite Labyrinth.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Virlyce - Master of the System.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Void Herald - Never Die Twice.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Void Herald - Vainqueur the Dragon.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Vowron Prime - Magnus.epub, source: true} : MoreChapterThanSource(155)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/WeirdWhirl - The Dao of Magic.epub, source: true} : UpToDate
+
+ ╭─valentin@vlt in ~ via  v3.10.5 took 2ms
+ ╰─λ ~/Development/Rusty_Stuff/auto_update_books/target/release/boop --dir /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust
+Args { path: None, dir: "/home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust", count: 1 }
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Aetherial - Nanocultivation Chronicles_ Trials of Lilijoy.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Agranulocytosis - The Essence of Cultivation.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Alex M - The Hedge Wizard.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Andur - A Demon's Tail.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Atomicallyours - Technomagica.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Bearcat - Archon.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/C_Mantis - The Path of Ascension.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Casualfarmer - Beware Of Chicken.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/CoCop - Burning Stars, Falling Skies.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/CookieCrumble - Tales of an Unlikely Wizard (Isekai LitRPG)_.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/CrystalSquirrel - Grave of the Goddess.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Dlux - Overpowered Magic Goo.epub, source: true} : MoreChapterThanSource(23)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Doctor Zero - Ultra A.I_.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Doctor Zero - Very Yummy Poison.epub, source: true} : MoreChapterThanSource(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Draecath - Evernya Rising.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/DragonOfRochester - When Immortal Ascension Fails Time Travel to Try Again.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Falco A Krenz - The Quantum System.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/HeWhoLooksSkyward - Barbarians.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Hodhandr - Upheaval - The Gentle Apocalypse.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Hoophy97 - Dungeon Engineer.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Illthylian - War Queen.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/InadvisablyCompelled - Blue Core.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Kiwilord - Cultivation Anomaly.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/KrazeKode - The 3rd Law of Cultivation_ Qi=MC^2.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Kuropon - The Runesmith.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Labyrinthia - Labyrinthia's Maze.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Lise Eclaire - The Scuu Paradox.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/LivingSpoon - Arrogant Young Master Template A Variation 4.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Maari - Queen in the Mud.epub, source: true} : MoreChapterThanSource(25)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Macronomicon - Wake of the Ravager.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Mark Arrows - 12 Miles Below.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Materia-Blade - Artificial Jelly.epub, source: true} : MoreChapterThanSource(43)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/MelasD - Salvos.epub, source: true} : Updated(4)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Nighzmarquls - Onward To Providence.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Noddy Sparks - Techno Cultivator.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/NorskDaedalus - The Way Ahead.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Phillip Rayne - Fantasy World Epsilon 30-10.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/RavensDagger - Cinnamon Bun.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/RavensDagger - Fluff.epub, source: true} : Updated(3)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Rhaegar - Azarinth Healer.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/RinoZ - Chrysalis.epub, source: true} : MoreChapterThanSource(98)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/SciFiAddict - The Defective Hermit.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/SealJohnson - Undermind.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Selkie - Beneath the Dragoneye Moons (Start).epub, source: true} : MoreChapterThanSource(251)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Selkie - Beneath the Dragoneye Moons.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Shirtaloon (Travis Deverell) - He Who Fights With Monsters.epub, source: true} : Updated(3)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/SilverLinings - Edge Cases.epub, source: true} : Updated(3)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/TMarkos - Grand Design.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Temple - REND.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/The Random Cat - I'm a brick! But why am I a Humanoid_ [A Non-Level LitRPG with a Humanoid MC full of Magic, Drama and Comedic Undertone].epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/ThinkTwice - Mark of the Crijik.epub, source: true} : Updated(2)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Thundamoo - Hive Minds Give Good Hugs.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Thundamoo - Vigor Mortis.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/TigerCannon - A Beginner's Guide to Napping, Sunbathing, and Slaughtering Your Prey.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Trollmore - Godslayers.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/TzarNik - Hazardous Debugging_ Reanimation.epub, source: true} : MoreChapterThanSource(20)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Vihyungrang - Lament of the Fallen.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Vihyungrang - Power Overwhelming.epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Vihyungrang - Song of the Void.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Vincent Archer - The Infinite Labyrinth.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Virlyce - Master of the System.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Void Herald - Never Die Twice.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Void Herald - Vainqueur the Dragon.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Vowron Prime - Magnus.epub, source: true} : MoreChapterThanSource(155)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/WeirdWhirl - The Dao of Magic.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Winged Wolf - Long Fang - Cultivator vs. System.epub, source: true} : MoreChapterThanSource(131)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Zat - Shade Touched.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Zendran - The Great Core's Paradox.epub, source: true} : Updated(8)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/Zogarth - The Primal Hunter.epub, source: true} : Updated(4)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/argusthecat - Kitty Cat Kill Sat.epub, source: true} : Updated(4)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/cathfach - A Lonely Dungeon.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/kosnik4 - Magic-Smithing.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/lungs - The Last Ship in Suzhou.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/mooderino - Deeper Darker.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/nobody103 - Mother of Learning.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/powered_by_coffee - Enduring Good _ [The Rationalist's Guide to Cultivation and Cosmic Abominations from Beyond the Stars].epub, source: true} : Updated(5)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/ramouton - Reborn as a Fantasy World Dungeon.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/spaizzzer - Tree of Aeons (An isekai story).epub, source: true} : Updated(1)
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/vladerag - The Many Lives of Cadence Lee.epub, source: true} : UpToDate
+Book : { path: /home/valentin/Dropbox/Applications/Dropbox_PocketBook_rust/wercwercwerc - The Snake Report.epub, source: true} : UpToDate
+Time elasped : 661s

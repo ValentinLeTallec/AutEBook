@@ -8,6 +8,8 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::ChildStdout;
 use std::process::{Command, Stdio};
+use std::thread;
+use std::time::Duration;
 
 lazy_static! {
     static ref UPDATING: Regex = Regex::new(r"^Updating .*, URL: .*$").unwrap();
@@ -23,11 +25,12 @@ use crate::source::{FanFicFare, Syndication, UpdateResult};
 
 // mod source;
 
-// #[derive(Debug)]
 pub struct Book {
     path: Box<Path>,
     source: Option<Box<dyn FanFicFare>>,
 }
+
+// impl Send for Book {}
 
 impl Book {
     pub fn new(path: &Path) -> Book {
@@ -36,33 +39,12 @@ impl Book {
             source: source::get(&path),
         }
     }
-    pub fn print_path(&self) {
-        println!("{}", self.path.to_str().unwrap());
-    }
 
-    pub fn update(&self) {
-        self.call_fanficfare();
-    }
-
-    fn parse_output(stdout: Option<ChildStdout>) -> Option<UpdateResult> {
-        BufReader::new(stdout?)
-            .lines()
-            .filter_map(|line| line.ok())
-            .filter(|line| UPDATING.captures(&line).is_none())
-            // .inspect(|line| println!("~~~> {:?}", line))
-            // .inspect(|line| println!("DO_UPDATE {:?}", DO_UPDATE.captures(&line)))
-            // .inspect(|line| println!("UP_TO_DATE {:?}", UP_TO_DATE.captures(&line)))
-            // .inspect(|line| println!("STUB {:?}", STUB.captures(&line)))
-            // .inspect(|line| println!("UPDATING {:?}", UPDATING.captures(&line)))
-            .filter_map(|line| {
-                if let Some(c) = DO_UPDATE.captures(&line) {
-                    let nb_chapter_epub = &c[1].parse::<u16>().ok()?;
-                    let nb_chapter_url = &c[2].parse::<u16>().ok()?;
-                    return Some(UpdateResult::Updated(nb_chapter_url - nb_chapter_epub));
-                }
-                None
-            })
-            .nth(0)
+    pub fn update(&self) -> UpdateResult {
+        // println!("{:?}", self.path);
+        self.call_fanficfare().unwrap_or(UpdateResult::NotSupported)
+        // thread::sleep(Duration::from_secs(1));
+        // println!("{:?}", self);
     }
 
     pub fn call_fanficfare(&self) -> Result<UpdateResult, Box<dyn Error>> {
@@ -111,7 +93,7 @@ impl Book {
                     .nth(0)
                     .ok_or(io::Error::from(io::ErrorKind::Unsupported))?;
 
-                println!("{:?} : {:?}", self, update_result);
+                // println!("{:?} : {:?}", self, update_result);
                 Ok(update_result)
             }
         }
