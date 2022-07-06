@@ -3,7 +3,8 @@
 mod book;
 mod source;
 
-use book::Book;
+use crate::book::Book;
+use crate::source::UpdateResult;
 use clap::Parser;
 use indicatif::ProgressBar;
 use indicatif::ProgressIterator;
@@ -59,7 +60,7 @@ fn update_all_books(args: &Args, book_files: Vec<walkdir::DirEntry>) {
 
     bar.set_style(
         ProgressStyle::default_bar().template(
-            "{prefix}\n[{elapsed}/{duration}] {wide_bar:.white/orange} {pos:>3}/{len:3} ({percent}%)\n{msg}",
+            "{prefix}\n[{elapsed}/{duration}] {wide_bar:white/orange} {pos:>3}/{len:3} ({percent}%)\n{msg}",
         ),
     );
 
@@ -73,10 +74,19 @@ fn update_all_books(args: &Args, book_files: Vec<walkdir::DirEntry>) {
         });
     });
 
-    let map: Vec<source::UpdateResult> = receiver
+    let messages: Vec<&str> = Vec::new();
+
+    let map: Vec<book::BookResult> = receiver
         .iter()
         .inspect(|_| bar.inc(1))
-        .inspect(|res| bar.set_prefix(format!("{:?}", res)))
+        .inspect(|b_res| bar.set_prefix(b_res.name.clone()))
+        .inspect(|b_res| {
+            if let UpdateResult::Updated(n) = b_res.result {
+                // messages.push(format!("[+{}] {}\n", n, b_res.name).as_str().clone());
+                bar.set_message(format!("[+{}] {}", n, b_res.name))
+            }
+        })
+        // .inspect(|b_res| bar.set_message(messages.get_muts))
         .take(nb_books)
         .collect();
     // println!("{:#?}", map);

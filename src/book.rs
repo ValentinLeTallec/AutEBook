@@ -1,3 +1,4 @@
+use epub::doc::EpubDoc;
 use lazy_static::lazy_static;
 use regex::Regex;
 use rss::Channel;
@@ -26,25 +27,36 @@ use crate::source::{FanFicFare, Syndication, UpdateResult};
 // mod source;
 
 pub struct Book {
+    name: String,
     path: Box<Path>,
     source: Option<Box<dyn FanFicFare>>,
 }
 
-// impl Send for Book {}
+pub struct BookResult {
+    pub name: String,
+    pub result: UpdateResult,
+}
 
 impl Book {
+    fn get_book_name(path: &Path) -> Option<String> {
+        EpubDoc::new(path).ok()?.mdata("title")
+    }
+
     pub fn new(path: &Path) -> Book {
         Book {
+            name: Book::get_book_name(path).unwrap_or(String::from("Unknown Title")),
             path: path.to_path_buf().into_boxed_path(),
             source: source::get(&path),
         }
     }
 
-    pub fn update(&self) -> UpdateResult {
-        // println!("{:?}", self.path);
-        self.call_fanficfare().unwrap_or(UpdateResult::NotSupported)
-        // thread::sleep(Duration::from_secs(1));
-        // println!("{:?}", self);
+    pub fn update(&self) -> BookResult {
+        let mut short_name = self.name.clone();
+        short_name.truncate(50);
+        BookResult {
+            name: short_name,
+            result: self.call_fanficfare().unwrap_or(UpdateResult::NotSupported),
+        }
     }
 
     pub fn call_fanficfare(&self) -> Result<UpdateResult, Box<dyn Error>> {
