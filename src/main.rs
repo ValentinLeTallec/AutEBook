@@ -6,6 +6,8 @@ mod source;
 use crate::book::Book;
 use crate::source::UpdateResult;
 use clap::Parser;
+use colorful::Color;
+use colorful::Colorful;
 use indicatif::ProgressBar;
 use indicatif::ProgressIterator;
 use indicatif::ProgressStyle;
@@ -74,22 +76,23 @@ fn update_all_books(args: &Args, book_files: Vec<walkdir::DirEntry>) {
         });
     });
 
-    let messages: Vec<&str> = Vec::new();
-
     let map: Vec<book::BookResult> = receiver
         .iter()
         .inspect(|_| bar.inc(1))
         .inspect(|b_res| bar.set_prefix(b_res.name.clone()))
-        .inspect(|b_res| {
-            if let UpdateResult::Updated(n) = b_res.result {
-                // messages.push(format!("[+{}] {}\n", n, b_res.name).as_str().clone());
-                bar.set_message(format!("[+{}] {}", n, b_res.name))
+        .inspect(|b_res| match b_res.result {
+            UpdateResult::Updated(n) => {
+                let nb = format!("[{:>4}]", format!("+{}", n)).color(Color::Green);
+                bar.println(format!("{} {}\n", nb, b_res.name));
             }
+            UpdateResult::MoreChapterThanSource(n) => {
+                let nb = format!("[{:>4}]", format!("-{}", n)).color(Color::Red);
+                bar.println(format!("{} {}\n", nb, b_res.name));
+            }
+            _ => (),
         })
-        // .inspect(|b_res| bar.set_message(messages.get_muts))
         .take(nb_books)
         .collect();
-    // println!("{:#?}", map);
 }
 
 fn get_book_files(path: &str) -> Vec<walkdir::DirEntry> {
