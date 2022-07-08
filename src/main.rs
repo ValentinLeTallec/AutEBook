@@ -44,7 +44,8 @@ fn main() {
     let now = SystemTime::now();
 
     let book_files = get_book_files(&args.dir);
-    update_all_books(&args, book_files);
+    let nb_threads = args.nb_threads;
+    update_books(book_files, nb_threads);
     post_action(&args.dir);
 
     if let Ok(dt) = now.elapsed() {
@@ -52,11 +53,10 @@ fn main() {
     }
 }
 
-fn update_all_books(args: &Args, book_files: Vec<walkdir::DirEntry>) {
-    let nb_workers = args.nb_threads;
+fn update_books(book_files: Vec<walkdir::DirEntry>, nb_threads: usize) -> Vec<book::BookResult> {
     let nb_books = book_files.len();
 
-    let pool = ThreadPool::new(nb_workers);
+    let pool = ThreadPool::new(nb_threads);
     let (sender, receiver) = channel();
     let bar = ProgressBar::new(nb_books as u64);
 
@@ -72,27 +72,26 @@ fn update_all_books(args: &Args, book_files: Vec<walkdir::DirEntry>) {
             sender
                 .send(Book::new(e.path()).update())
                 .expect("channel will be there waiting for the pool");
-            // bar.inc(1);
         });
     });
 
-    let map: Vec<book::BookResult> = receiver
+    receiver
         .iter()
         .inspect(|_| bar.inc(1))
         .inspect(|b_res| bar.set_prefix(b_res.name.clone()))
         .inspect(|b_res| match b_res.result {
             UpdateResult::Updated(n) => {
-                let nb = format!("[{:>4}]", format!("+{}", n)).color(Color::Green);
+                let nb = format!("[{:>4}]", format!("+{}", n)).green().bold();
                 bar.println(format!("{} {}\n", nb, b_res.name));
             }
             UpdateResult::MoreChapterThanSource(n) => {
-                let nb = format!("[{:>4}]", format!("-{}", n)).color(Color::Red);
+                let nb = format!("[{:>4}]", format!("-{}", n)).red().bold();
                 bar.println(format!("{} {}\n", nb, b_res.name));
             }
             _ => (),
         })
         .take(nb_books)
-        .collect();
+        .collect()
 }
 
 fn get_book_files(path: &str) -> Vec<walkdir::DirEntry> {
