@@ -17,8 +17,7 @@ use std::time::{Duration, SystemTime};
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
-const DEFAULT_PATH: &str = "/home/valentin/temp/here";
-// const DEFAULT_PATH: &str = "/home/valentin/Dropbox/Applications/Dropbox PocketBook";
+const DEFAULT_PATH: &str = ".";
 const EPUB: &str = "epub";
 
 /// A small utility used to update books by levraging FanFicFare
@@ -34,13 +33,17 @@ struct Args {
     dir: String,
 
     /// Number of threads to use to update the books
-    #[clap(short, long, default_value_t = 4)]
+    #[clap(short, long, default_value_t = 8)]
     nb_threads: usize,
 }
 
 fn main() {
     let args = Args::parse();
-    println!("{:?}", args);
+    // println!("{:?}", args);
+    println!(
+        "Updating books ({}) using {} works\n",
+        &args.dir, args.nb_threads
+    );
     let now = SystemTime::now();
 
     let book_files = get_book_files(&args.dir);
