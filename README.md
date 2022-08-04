@@ -12,3 +12,9 @@ Currently only e-books from royalroad.com are supported.
 - [ ] Auto update e-books by using RSS feeds to check for updates (ideally as AutE-Book would be running as a deamon in that case)
 - [ ] Send notifications for newly updated books
 - [ ] Manage STUBs (novel that get their beginning truncated because of Kindle Unlimited exclusivity policie)
+- [ ] Add an exclude pattern
+- [ ] Config file
+
+## Dependencies
+
+[FanFicFare](https://github.com/JimmXinu/FanFicFare) and rustup must be installed.

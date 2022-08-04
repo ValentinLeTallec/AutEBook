@@ -1,4 +1,3 @@
-#![allow(unused)]
 // #[no_panic]
 mod book;
 mod source;
@@ -6,14 +5,11 @@ mod source;
 use crate::book::Book;
 use crate::source::UpdateResult;
 use clap::Parser;
-use colorful::Color;
 use colorful::Colorful;
-use indicatif::ProgressBar;
-use indicatif::ProgressIterator;
-use indicatif::ProgressStyle;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
 use std::sync::mpsc::channel;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
