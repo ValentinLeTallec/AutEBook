@@ -17,8 +17,8 @@ pub trait Source {
     }
 }
 
-pub struct UnsupportedSource {}
-impl Source for UnsupportedSource {
+pub struct Unsupported {}
+impl Source for Unsupported {
     fn new(_url: &str) -> Option<Self> {
         None
     }
@@ -30,7 +30,7 @@ pub fn get(path: &Path) -> Box<dyn Source> {
             return Box::new(fiction);
         }
     }
-    Box::new(UnsupportedSource {})
+    Box::new(Unsupported {})
 }
 
 fn get_source_url_from_epub(path: &Path) -> Option<String> {

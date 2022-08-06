@@ -14,5 +14,5 @@ pub trait Update {
     fn new() -> Self
     where
         Self: Sized;
-    fn update(&self, path: Box<Path>) -> UpdateResult;
+    fn update(&self, path: &Path) -> UpdateResult;
 }

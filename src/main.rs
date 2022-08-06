@@ -50,7 +50,7 @@ fn main() {
     post_action(&args.dir);
 
     if let Ok(dt) = now.elapsed() {
-        println!("Time elasped : {}s", dt.as_secs())
+        println!("Time elasped : {}s", dt.as_secs());
     }
 }
 

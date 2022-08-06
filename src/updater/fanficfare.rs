@@ -22,10 +22,10 @@ lazy_static! {
 pub struct FanFicFare;
 
 impl FanFicFare {
-    fn do_update(path: Box<Path>) -> Result<UpdateResult, Box<dyn Error>> {
+    fn do_update(path: &Path) -> Result<UpdateResult, Box<dyn Error>> {
         let path = path
             .to_str()
-            .ok_or(io::Error::from(io::ErrorKind::Unsupported))?;
+            .ok_or_else(|| io::Error::from(io::ErrorKind::Unsupported))?;
 
         let cmd = Command::new("fanficfare")
             .arg("--non-interactive")
@@ -38,12 +38,12 @@ impl FanFicFare {
 
         let stdout = cmd
             .stdout
-            .ok_or(io::Error::from(io::ErrorKind::Unsupported))?;
+            .ok_or_else(|| io::Error::from(io::ErrorKind::Unsupported))?;
         let update_result = BufReader::new(stdout)
             .lines()
             .filter_map(std::result::Result::ok)
             .filter(|line| UPDATING.captures(line).is_none())
-            .filter_map(|line| {
+            .find_map(|line| {
                 if UP_TO_DATE.captures(&line).is_some() {
                     return Some(UpdateResult::UpToDate);
                 }
@@ -60,8 +60,8 @@ impl FanFicFare {
                     ));
                 }
                 None
-            }).next()
-            .ok_or(io::Error::from(io::ErrorKind::Unsupported))?;
+            })
+            .ok_or_else(|| io::Error::from(io::ErrorKind::Unsupported))?;
 
         Ok(update_result)
     }
@@ -70,7 +70,7 @@ impl Update for FanFicFare {
     fn new() -> Self {
         Self {}
     }
-    fn update(&self, path: Box<Path>) -> UpdateResult {
+    fn update(&self, path: &Path) -> UpdateResult {
         Self::do_update(path).unwrap_or(UpdateResult::NotSupported)
     }
 }

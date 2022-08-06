@@ -26,7 +26,7 @@ impl Book {
     pub fn new(path: &Path) -> Self {
         let source = source::get(path);
         Self {
-            name: Self::get_book_name(path).unwrap_or(String::from("Unknown Title")),
+            name: Self::get_book_name(path).unwrap_or_else(|| String::from("Unknown Title")),
             path: path.to_path_buf().into_boxed_path(),
             updater: source.get_updater(),
         }
@@ -40,7 +40,7 @@ impl Book {
             result: self
                 .updater
                 .as_ref()
-                .map_or(UpdateResult::NotSupported, |s| s.update(self.path.clone())),
+                .map_or(UpdateResult::NotSupported, |s| s.update(&self.path)),
         }
     }
 
@@ -55,22 +55,22 @@ impl Book {
 }
 
 impl Debug for Book {
-    fn fmt(&self, _: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        print!(
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        write!(
+            f,
             "Book : {{ path: {}, source: {}}}",
             self.path.display(),
             self.updater.is_some()
-        );
-        Ok(())
+        )
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn test() {
-        assert!(true);
-    }
-}
+//     #[test]
+//     fn test() {
+//         assert!(true);
+//     }
+// }
