@@ -1,38 +1,36 @@
 mod royalroad;
+use crate::updater::Update;
 use epub::doc::EpubDoc;
-use royalroad::RoyalRoad;
 use std::path::Path;
 
-pub trait Syndication {
-    fn get_syndication_url(&self) -> String;
-}
+use self::royalroad::RoyalRoad;
 
-#[derive(Debug)]
-pub enum UpdateResult {
-    NotSupported,
-    UpToDate,
-    Updated(u16),
-    MoreChapterThanSource(u16),
-}
-
-// impl UpdateResult {
-//     fn nb_of_new_chapter(epub_nb: Option<&str>, url_nb: Option<&str>) -> Option<u16> {
-//         Some(url_nb?.parse::<u16>().ok()? - epub_nb?.parse::<u16>().ok()?)
-//     }
-// }
-
-pub trait FanFicFare {
+pub trait Source {
     fn new(url: &str) -> Option<Self>
     where
         Self: Sized;
+    fn get_updater(&self) -> Option<Box<dyn Update>> {
+        None
+    }
+    fn get_syndication_url(&self) -> Option<String> {
+        None
+    }
 }
 
-pub fn get(path: &Path) -> Option<Box<dyn FanFicFare>> {
-    let url = &get_source_url_from_epub(path)?;
-    if let Some(fiction) = RoyalRoad::new(url) {
-        return Some(Box::new(fiction));
+pub struct UnsupportedSource {}
+impl Source for UnsupportedSource {
+    fn new(_url: &str) -> Option<Self> {
+        None
     }
-    None
+}
+
+pub fn get(path: &Path) -> Box<dyn Source> {
+    if let Some(url) = &get_source_url_from_epub(path) {
+        if let Some(fiction) = RoyalRoad::new(url) {
+            return Box::new(fiction);
+        }
+    }
+    Box::new(UnsupportedSource {})
 }
 
 fn get_source_url_from_epub(path: &Path) -> Option<String> {

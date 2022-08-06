@@ -13,6 +13,8 @@ Currently only e-books from royalroad.com are supported.
 - [ ] Send notifications for newly updated books
 - [ ] Manage STUBs (novel that get their beginning truncated because of Kindle Unlimited exclusivity policie)
 - [ ] Add an exclude pattern
+  - [ ] Add support for a .gitignore style file
+  - [ ] Propose to generated such file pre-filed with unsupported files
 - [ ] Config file
 
 ## Dependencies

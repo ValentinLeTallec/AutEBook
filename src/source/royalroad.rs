@@ -1,4 +1,6 @@
-use super::{FanFicFare, Syndication};
+use super::Source;
+use crate::updater::FanFicFare;
+use crate::updater::Update;
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -12,17 +14,21 @@ pub struct RoyalRoad {
     id: u32,
 }
 
-impl Syndication for RoyalRoad {
-    fn get_syndication_url(&self) -> String {
-        format!("https://www.royalroad.com/fiction/syndication/{}", self.id)
+impl Source for RoyalRoad {
+    fn get_syndication_url(&self) -> Option<String> {
+        Some(format!(
+            "https://www.royalroad.com/fiction/syndication/{}",
+            self.id
+        ))
     }
-}
+    fn get_updater(&self) -> Option<Box<dyn Update>> {
+        Some(Box::new(FanFicFare::new()))
+    }
 
-impl FanFicFare for RoyalRoad {
     fn new(fiction_url: &str) -> Option<RoyalRoad> {
         let captures = FICTION_URL_PATTERN.captures(fiction_url)?;
-        let id = &captures[1].parse::<u32>().ok()?;
-        Some(RoyalRoad { id: *id })
+        let id = captures[1].parse::<u32>().ok()?;
+        Some(RoyalRoad { id })
     }
 }
 

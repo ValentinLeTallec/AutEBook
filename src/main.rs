@@ -1,9 +1,11 @@
 // #[no_panic]
 mod book;
 mod source;
+mod updater;
 
 use crate::book::Book;
-use crate::source::UpdateResult;
+use crate::updater::UpdateResult;
+
 use clap::Parser;
 use colorful::Colorful;
 use indicatif::{ProgressBar, ProgressStyle};
