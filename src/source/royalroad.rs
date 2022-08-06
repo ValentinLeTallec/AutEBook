@@ -43,20 +43,19 @@ mod tests {
         let source = RoyalRoad::new("https://www.df.com/fiction/36049/the-primal-hunter");
         assert_eq!(source, None);
     }
-    use super::*;
 
     #[test]
     fn test_royalroad_long_url() {
         let source =
             RoyalRoad::new("https://www.royalroad.com/fiction/36049/the-primal-hunter").unwrap();
         let rss_feed = "https://www.royalroad.com/fiction/syndication/36049";
-        assert_eq!(source.get_syndication_url(), rss_feed);
+        assert_eq!(source.get_syndication_url(), Some(rss_feed.to_string()));
     }
 
     #[test]
     fn test_royalroad_short_url() {
         let source = RoyalRoad::new("https://www.royalroad.com/fiction/36049").unwrap();
         let rss_feed = "https://www.royalroad.com/fiction/syndication/36049";
-        assert_eq!(source.get_syndication_url(), rss_feed);
+        assert_eq!(source.get_syndication_url(), Some(rss_feed.to_string()));
     }
 }

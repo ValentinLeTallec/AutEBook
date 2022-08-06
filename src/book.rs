@@ -10,7 +10,6 @@ use std::path::Path;
 pub struct Book {
     name: String,
     path: Box<Path>,
-    // source: Option<Box<dyn Update>>,
     updater: Option<Box<dyn Update>>,
 }
 
@@ -60,11 +59,7 @@ impl Debug for Book {
         print!(
             "Book : {{ path: {}, source: {}}}",
             self.path.display(),
-            if let Some(_) = self.updater {
-                true
-            } else {
-                false
-            }
+            self.updater.is_some()
         );
         Ok(())
     }
