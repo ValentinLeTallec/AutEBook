@@ -18,7 +18,7 @@ use walkdir::WalkDir;
 const DEFAULT_PATH: &str = ".";
 const EPUB: &str = "epub";
 
-/// A small utility used to update books by levraging FanFicFare
+/// A small utility used to update books by levraging `FanFicFare`
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
@@ -67,14 +67,14 @@ fn update_books(book_files: Vec<walkdir::DirEntry>, nb_threads: usize) -> Vec<bo
         ),
     );
 
-    book_files.into_iter().for_each(|e| {
+    for e in book_files {
         let sender = sender.clone();
         pool.execute(move || {
             sender
                 .send(Book::new(e.path()).update())
                 .expect("channel will be there waiting for the pool");
         });
-    });
+    }
 
     receiver
         .iter()
@@ -98,7 +98,7 @@ fn update_books(book_files: Vec<walkdir::DirEntry>, nb_threads: usize) -> Vec<bo
 fn get_book_files(path: &str) -> Vec<walkdir::DirEntry> {
     WalkDir::new(path)
         .into_iter()
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|e| e.file_type().is_file())
         .filter(|e| e.path().extension().map_or(false, |v| v == EPUB))
         .collect()
@@ -108,14 +108,12 @@ fn post_action(path: &str) {
     // Remove empty files
     WalkDir::new(path)
         .into_iter()
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|e| e.file_type().is_file())
         .filter(|e| e.metadata().map(|m| m.len() == 0).unwrap_or(false)) // File is empty
         .for_each(|f| {
-            fs::remove_file(f.path()).expect(&format!(
-                "{} is empty but could not be deleted",
-                f.path().display()
-            ))
+            fs::remove_file(f.path()).unwrap_or_else(|_| panic!("{} is empty but could not be deleted",
+                f.path().display()))
         })
 }
 

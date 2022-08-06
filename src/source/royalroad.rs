@@ -25,10 +25,10 @@ impl Source for RoyalRoad {
         Some(Box::new(FanFicFare::new()))
     }
 
-    fn new(fiction_url: &str) -> Option<RoyalRoad> {
+    fn new(fiction_url: &str) -> Option<Self> {
         let captures = FICTION_URL_PATTERN.captures(fiction_url)?;
         let id = captures[1].parse::<u32>().ok()?;
-        Some(RoyalRoad { id })
+        Some(Self { id })
     }
 }
 

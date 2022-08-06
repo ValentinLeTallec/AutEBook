@@ -41,10 +41,10 @@ impl FanFicFare {
             .ok_or(io::Error::from(io::ErrorKind::Unsupported))?;
         let update_result = BufReader::new(stdout)
             .lines()
-            .filter_map(|line| line.ok())
-            .filter(|line| UPDATING.captures(&line).is_none())
+            .filter_map(std::result::Result::ok)
+            .filter(|line| UPDATING.captures(line).is_none())
             .filter_map(|line| {
-                if let Some(_) = UP_TO_DATE.captures(&line) {
+                if UP_TO_DATE.captures(&line).is_some() {
                     return Some(UpdateResult::UpToDate);
                 }
                 if let Some(c) = DO_UPDATE.captures(&line) {
@@ -60,8 +60,7 @@ impl FanFicFare {
                     ));
                 }
                 None
-            })
-            .nth(0)
+            }).next()
             .ok_or(io::Error::from(io::ErrorKind::Unsupported))?;
 
         Ok(update_result)
@@ -69,9 +68,9 @@ impl FanFicFare {
 }
 impl Update for FanFicFare {
     fn new() -> Self {
-        FanFicFare {}
+        Self {}
     }
     fn update(&self, path: Box<Path>) -> UpdateResult {
-        FanFicFare::do_update(path).unwrap_or(UpdateResult::NotSupported)
+        Self::do_update(path).unwrap_or(UpdateResult::NotSupported)
     }
 }

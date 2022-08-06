@@ -24,10 +24,10 @@ impl Book {
         EpubDoc::new(path).ok()?.mdata("title")
     }
 
-    pub fn new(path: &Path) -> Book {
-        let source = source::get(&path);
-        Book {
-            name: Book::get_book_name(path).unwrap_or(String::from("Unknown Title")),
+    pub fn new(path: &Path) -> Self {
+        let source = source::get(path);
+        Self {
+            name: Self::get_book_name(path).unwrap_or(String::from("Unknown Title")),
             path: path.to_path_buf().into_boxed_path(),
             updater: source.get_updater(),
         }
@@ -41,8 +41,7 @@ impl Book {
             result: self
                 .updater
                 .as_ref()
-                .map(|s| s.update(self.path.clone()))
-                .unwrap_or(UpdateResult::NotSupported),
+                .map_or(UpdateResult::NotSupported, |s| s.update(self.path.clone())),
         }
     }
 
