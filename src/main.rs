@@ -113,7 +113,7 @@ fn post_action(path: &str) {
         .filter(|e| e.metadata().map(|m| m.len() == 0).unwrap_or(false)) // File is empty
         .for_each(|f| {
             fs::remove_file(f.path()).unwrap_or_else(|_| {
-                panic!("{} is empty but could not be deleted", f.path().display());
+                eprintln!("{} is empty but could not be deleted", f.path().display());
             });
         });
 }
