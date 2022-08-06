@@ -39,7 +39,7 @@ fn main() {
     let args = Args::parse();
     // println!("{:?}", args);
     println!(
-        "Updating books ({}) using {} works\n",
+        "Updating books in '{}' using {} workers\n",
         &args.dir, args.nb_threads
     );
     let now = SystemTime::now();
