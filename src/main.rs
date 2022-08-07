@@ -1,4 +1,4 @@
-// #[no_panic]
+// #![warn(unused_extern_crates)]
 mod book;
 mod source;
 mod updater;
@@ -9,10 +9,9 @@ use crate::updater::UpdateResult;
 use clap::Parser;
 use colorful::Colorful;
 use indicatif::{ProgressBar, ProgressStyle};
+use rayon::prelude::*;
 use std::fs;
-use std::sync::mpsc::channel;
 use std::time::SystemTime;
-use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
 const DEFAULT_PATH: &str = ".";
@@ -37,16 +36,17 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    // println!("{:?}", args);
+    setup_nb_threads(args.nb_threads);
+
     println!(
         "Updating books in '{}' using {} workers\n",
         &args.dir, args.nb_threads
     );
-    let now = SystemTime::now();
 
+    let now = SystemTime::now();
     let book_files = get_book_files(&args.dir);
-    let nb_threads = args.nb_threads;
-    update_books(book_files, nb_threads);
+    // book_files.sort_by(|a, b| a.metadata().unwrap().modified)
+    update_books(&book_files);
     post_action(&args.dir);
 
     if let Ok(dt) = now.elapsed() {
@@ -54,30 +54,29 @@ fn main() {
     }
 }
 
-fn update_books(book_files: Vec<walkdir::DirEntry>, nb_threads: usize) -> Vec<book::BookResult> {
-    let nb_books = book_files.len();
+fn setup_nb_threads(nb_threads: usize) {
+    let custom_rayon_conf = rayon::ThreadPoolBuilder::new()
+        .num_threads(nb_threads)
+        .build_global();
+    if custom_rayon_conf.is_err() {
+        eprintln!(
+            "Could not use custom number of threads ({}), default number ({}) was used",
+            nb_threads,
+            rayon::current_num_threads()
+        );
+    }
+}
 
-    let pool = ThreadPool::new(nb_threads);
-    let (sender, receiver) = channel();
-    let bar = ProgressBar::new(nb_books as u64);
-
+fn update_books(book_files: &[walkdir::DirEntry]) {
+    let bar = ProgressBar::new(book_files.len() as u64);
     bar.set_style(
         ProgressStyle::default_bar().template(
             "{prefix}\n[{elapsed}/{duration}] {wide_bar:white/orange} {pos:>3}/{len:3} ({percent}%)\n{msg}",
         ),
     );
-
-    for e in book_files {
-        let sender = sender.clone();
-        pool.execute(move || {
-            sender
-                .send(Book::new(e.path()).update())
-                .expect("channel will be there waiting for the pool");
-        });
-    }
-
-    receiver
-        .iter()
+    book_files
+        .par_iter()
+        .map(|e| Book::new(e.path()).update())
         .inspect(|_| bar.inc(1))
         .inspect(|b_res| bar.set_prefix(b_res.name.clone()))
         .inspect(|b_res| match b_res.result {
@@ -91,8 +90,7 @@ fn update_books(book_files: Vec<walkdir::DirEntry>, nb_threads: usize) -> Vec<bo
             }
             _ => (),
         })
-        .take(nb_books)
-        .collect()
+        .count();
 }
 
 fn get_book_files(path: &str) -> Vec<walkdir::DirEntry> {
