@@ -7,6 +7,7 @@ pub enum UpdateResult {
     NotSupported,
     UpToDate,
     Updated(u16),
+    Skipped,
     MoreChapterThanSource(u16),
 }
 

@@ -71,7 +71,7 @@ fn update_books(book_files: &[walkdir::DirEntry]) {
     let bar = ProgressBar::new(book_files.len() as u64);
     bar.set_style(
         ProgressStyle::default_bar().template(
-            "{prefix}\n[{elapsed}/{duration}] {wide_bar:white/orange} {pos:>3}/{len:3} ({percent}%)\n{msg}",
+            "\n{prefix}\n[{elapsed}/{duration}] {wide_bar:white/orange} {pos:>3}/{len:3} ({percent}%)\n{msg}",
         ),
     );
     book_files
@@ -87,6 +87,10 @@ fn update_books(book_files: &[walkdir::DirEntry]) {
             UpdateResult::MoreChapterThanSource(n) => {
                 let nb = format!("[{:>4}]", format!("-{}", n)).red().bold();
                 bar.println(format!("{} {}\n", nb, b_res.name));
+            }
+            UpdateResult::Skipped => {
+                let prefix = format!("[Skip]").blue().bold();
+                bar.println(format!("{} {}\n", prefix, b_res.name));
             }
             _ => (),
         })

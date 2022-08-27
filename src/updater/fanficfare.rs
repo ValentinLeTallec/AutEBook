@@ -18,6 +18,7 @@ impl FanFicFare {
         let do_update = regex!(r"^Do update - epub\((\d+)\) vs url\((\d+)\)$");
         let more_chapter_than_source =
             regex!(r"^.* contains (\d+) chapters, more than source: (\d+)\.$");
+        let skipped = regex!(r" - Skipping$");
 
         let path = path
             .to_str()
@@ -26,6 +27,7 @@ impl FanFicFare {
         let cmd = Command::new("fanficfare")
             .arg("--non-interactive")
             .arg("--update-epub")
+            .arg("--update-cover")
             // .arg("--no-output") // TODO : remove line
             .arg(path)
             .stdout(Stdio::piped())
@@ -35,8 +37,14 @@ impl FanFicFare {
         let stdout = cmd
             .stdout
             .ok_or_else(|| io::Error::from(io::ErrorKind::Unsupported))?;
-        let update_result = BufReader::new(stdout)
+
+        let stderr = cmd
+            .stderr
+            .ok_or_else(|| io::Error::from(io::ErrorKind::Unsupported))?;
+
+        let update_result = BufReader::new(stderr)
             .lines()
+            .chain(BufReader::new(stdout).lines())
             .filter_map(std::result::Result::ok)
             .filter(|line| updating.captures(line).is_none())
             .find_map(|line| {
@@ -54,6 +62,9 @@ impl FanFicFare {
                     return Some(UpdateResult::MoreChapterThanSource(
                         nb_chapter_epub - nb_chapter_url,
                     ));
+                }
+                if skipped.captures(&line).is_some() {
+                    return Some(UpdateResult::Skipped);
                 }
                 None
             })
