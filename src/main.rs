@@ -15,7 +15,7 @@ mod source;
 mod updater;
 
 use crate::book::Book;
-use crate::updater::UpdateResult;
+use crate::updater::{CreationResult, UpdateResult};
 
 use clap::{CommandFactory, Parser, Subcommand};
 use colorful::Colorful;
@@ -44,6 +44,8 @@ struct Args {
 }
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Adds books to the work directory, based on the URL(s) given
+    Add { urls: Vec<String> },
     /// Update specific books, based on path(s) given,
     /// if no path is given will update the work directory
     Update { paths: Vec<String> },
@@ -56,9 +58,9 @@ fn main() {
     let args = Args::parse();
     setup_nb_threads(args.nb_threads);
     let work_dir = Path::new(&args.dir);
-    let now = SystemTime::now();
 
     match args.subcommand {
+        Commands::Add { urls } => create_books(&urls, work_dir),
         Commands::Update { paths } => {
             let book_files: Vec<walkdir::DirEntry> = if paths.is_empty() {
                 get_book_files(work_dir)
@@ -93,17 +95,22 @@ fn setup_nb_threads(nb_threads: usize) {
     }
 }
 
+fn create_books(urls: &[String], dir: &Path) {
+    let bar = get_progress_bar(urls.len() as u64);
+
+    urls.par_iter()
+        .inspect(|_| bar.inc(1))
+        .filter_map(|url| Some(Book::get_source(url)?.create(dir, url)))
+        .for_each(|b_res| match b_res {
+            CreationResult::Created(path) => bar.println(path.display().to_string()),
+            CreationResult::CouldNotCreate => eprintln!("Could not create"),
+            CreationResult::CreationNotSupported => eprintln!("Not suported"),
+        });
+}
 
 fn update_books(book_files: &[walkdir::DirEntry]) {
-    let bar = ProgressBar::new(book_files.len() as u64);
-    let template_progress = ProgressStyle::with_template(
-        "\n{prefix}\n[{elapsed}/{duration}] {wide_bar} {pos:>3}/{len:3} ({percent}%)\n{msg}",
-    )
-    .unwrap_or_else(|err| {
-        eprintln!("{err}");
-        ProgressStyle::default_bar()
-    });
-    bar.set_style(template_progress);
+    let bar = get_progress_bar(book_files.len() as u64);
+
     book_files
         .par_iter()
         .map(|e| Book::new(e.path()).update())
@@ -124,6 +131,19 @@ fn update_books(book_files: &[walkdir::DirEntry]) {
             }
             UpdateResult::Unsupported | UpdateResult::UpToDate => (),
         });
+}
+
+fn get_progress_bar(len: u64) -> ProgressBar {
+    let bar = ProgressBar::new(len);
+    let template_progress = ProgressStyle::with_template(
+        "\n{prefix}\n[{elapsed}/{duration}] {wide_bar} {pos:>3}/{len:3} ({percent}%)\n{msg}",
+    )
+    .unwrap_or_else(|err| {
+        eprintln!("{err}");
+        ProgressStyle::default_bar()
+    });
+    bar.set_style(template_progress);
+    bar
 }
 
 fn get_book_files(path: &Path) -> Vec<walkdir::DirEntry> {

@@ -13,6 +13,7 @@ pub struct Book {
     updater: Option<Box<dyn Update>>,
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub struct BookResult {
     pub name: String,
     pub result: UpdateResult,
@@ -24,6 +25,10 @@ impl Book {
     }
     fn get_book_url(path: &Path) -> Option<String> {
         EpubDoc::new(path).ok()?.mdata("source")
+    }
+
+    pub fn get_source(url: &str) -> Option<Box<dyn Update>> {
+        source::get(url).get_updater()
     }
 
     pub fn new(path: &Path) -> Self {
