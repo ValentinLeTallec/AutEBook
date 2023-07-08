@@ -1,11 +1,18 @@
+use crate::updater::CreationResult;
 use crate::updater::Update;
 use crate::updater::UpdateResult;
 
 // use rss::Channel;
 use lazy_regex::regex;
+use serde::Deserialize;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
+
+#[derive(Deserialize)]
+struct FanFicFareJson {
+    output_filename: String,
+}
 
 pub struct FanFicFare;
 
@@ -60,10 +67,47 @@ impl FanFicFare {
 
         Some(update_result)
     }
+
+    pub fn do_create(dir: &Path, url: &str) -> Option<CreationResult> {
+        let cmd = Command::new("fanficfare")
+            .arg("--non-interactive")
+            .arg("--json-meta")
+            .arg(url)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .ok()?;
+
+        // Retrieve the metadata of the newly created book
+        let stdout = cmd.stdout?;
+        let book_metadata = BufReader::new(stdout)
+            .lines()
+            .map_while(Result::ok)
+            .reduce(|accum, line| accum + &line)?;
+
+        let filename = serde_json::from_str::<FanFicFareJson>(&book_metadata)
+            .map(|e| e.output_filename)
+            .ok()?;
+
+        // Manage error cases
+        let stderr = cmd.stderr?;
+        let nb_err_lines = BufReader::new(stderr).lines().map_while(Result::ok).count();
+        if nb_err_lines > 0 {
+            return None;
+        }
+
+        Some(CreationResult::Created(
+            dir.join(filename).into_boxed_path(),
+        ))
+    }
 }
+
 impl Update for FanFicFare {
     fn new() -> Self {
         Self {}
+    }
+    fn create(&self, path: &Path, url: &str) -> CreationResult {
+        Self::do_create(path, url).unwrap_or(CreationResult::CouldNotCreate)
     }
     fn update(&self, path: &Path) -> UpdateResult {
         Self::do_update(path).unwrap_or(UpdateResult::Unsupported)
