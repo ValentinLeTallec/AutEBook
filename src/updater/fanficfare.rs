@@ -3,8 +3,6 @@ use crate::updater::UpdateResult;
 
 // use rss::Channel;
 use lazy_regex::regex;
-use std::error::Error;
-use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -12,32 +10,31 @@ use std::process::{Command, Stdio};
 pub struct FanFicFare;
 
 impl FanFicFare {
-    fn do_update(path: &Path) -> Result<UpdateResult, Box<dyn Error>> {
+    fn do_update(path: &Path) -> Option<UpdateResult> {
         let updating = regex!(r"^Updating .*, URL: .*$");
         let up_to_date = regex!(r"^.* already contains \d+ chapters\.$");
         let do_update = regex!(r"^Do update - epub\((\d+)\) vs url\((\d+)\)$");
         let more_chapter_than_source =
             regex!(r"^.* contains (\d+) chapters, more than source: (\d+)\.$");
-
-        let path = path
-            .to_str()
-            .ok_or_else(|| io::Error::from(io::ErrorKind::Unsupported))?;
+        let skipped = " - Skipping";
 
         let cmd = Command::new("fanficfare")
             .arg("--non-interactive")
             .arg("--update-epub")
+            .arg("--update-cover")
             // .arg("--no-output") // TODO : remove line
             .arg(path)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()?;
+            .spawn()
+            .ok()?;
 
-        let stdout = cmd
-            .stdout
-            .ok_or_else(|| io::Error::from(io::ErrorKind::Unsupported))?;
-        let update_result = BufReader::new(stdout)
+        let stdout = cmd.stdout?;
+        let stderr = cmd.stderr?;
+        let update_result = BufReader::new(stderr)
             .lines()
-            .filter_map(std::result::Result::ok)
+            .chain(BufReader::new(stdout).lines())
+            .map_while(Result::ok)
             .filter(|line| updating.captures(line).is_none())
             .find_map(|line| {
                 if up_to_date.captures(&line).is_some() {
@@ -55,11 +52,13 @@ impl FanFicFare {
                         nb_chapter_epub - nb_chapter_url,
                     ));
                 }
+                if line.ends_with(skipped) {
+                    return Some(UpdateResult::Skipped);
+                }
                 None
-            })
-            .ok_or_else(|| io::Error::from(io::ErrorKind::Unsupported))?;
+            })?;
 
-        Ok(update_result)
+        Some(update_result)
     }
 }
 impl Update for FanFicFare {
@@ -67,6 +66,6 @@ impl Update for FanFicFare {
         Self {}
     }
     fn update(&self, path: &Path) -> UpdateResult {
-        Self::do_update(path).unwrap_or(UpdateResult::NotSupported)
+        Self::do_update(path).unwrap_or(UpdateResult::Unsupported)
     }
 }

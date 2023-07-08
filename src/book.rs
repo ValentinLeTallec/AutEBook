@@ -22,9 +22,13 @@ impl Book {
     fn get_book_name(path: &Path) -> Option<String> {
         EpubDoc::new(path).ok()?.mdata("title")
     }
+    fn get_book_url(path: &Path) -> Option<String> {
+        EpubDoc::new(path).ok()?.mdata("source")
+    }
 
     pub fn new(path: &Path) -> Self {
-        let source = source::get(path);
+        let book_url = Self::get_book_url(path).unwrap_or_default();
+        let source = source::get(&book_url);
         Self {
             name: Self::get_book_name(path).unwrap_or_else(|| String::from("Unknown Title")),
             path: path.to_path_buf().into_boxed_path(),
@@ -40,7 +44,7 @@ impl Book {
             result: self
                 .updater
                 .as_ref()
-                .map_or(UpdateResult::NotSupported, |s| s.update(&self.path)),
+                .map_or(UpdateResult::Unsupported, |s| s.update(&self.path)),
         }
     }
 
@@ -58,19 +62,9 @@ impl Debug for Book {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         write!(
             f,
-            "Book : {{ path: {}, source: {}}}",
+            "Book : {{ path: {}, source_is_recognized: {}}}",
             self.path.display(),
             self.updater.is_some()
         )
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn test() {
-//         assert!(true);
-//     }
-// }

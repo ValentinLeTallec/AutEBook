@@ -1,4 +1,15 @@
-// #[no_panic]
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    clippy::nursery,
+    clippy::cargo,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    // clippy::missing_docs_in_private_items,
+    clippy::wildcard_enum_match_arm,
+    clippy::use_debug
+)]
+
 mod book;
 mod source;
 mod updater;
@@ -6,78 +17,107 @@ mod updater;
 use crate::book::Book;
 use crate::updater::UpdateResult;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use colorful::Colorful;
 use indicatif::{ProgressBar, ProgressStyle};
+use rayon::prelude::*;
 use std::fs;
-use std::sync::mpsc::channel;
+use std::path::Path;
 use std::time::SystemTime;
-use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
-const DEFAULT_PATH: &str = ".";
 const EPUB: &str = "epub";
 
 /// A small utility used to update books by levraging `FanFicFare`
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[clap(author, version, about, long_about = None, propagate_version = true)]
 struct Args {
+    #[clap(subcommand)]
+    subcommand: Option<Commands>,
+
     /// Path to the book to update
     #[clap(short, long)]
     path: Option<String>,
 
-    /// Path to the directory to update
-    #[clap(short, long, default_value = DEFAULT_PATH)]
+    /// Path to the work directory
+    #[clap(short, long, default_value = "./")]
     dir: String,
 
-    /// Number of threads to use to update the books
+    /// Number of threads to use
     #[clap(short, long, default_value_t = 8)]
     nb_threads: usize,
+}
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Update specific books, based on path(s) given,
+    /// if no path is given will update the work directory
+    Update { paths: Vec<String> },
 }
 
 fn main() {
     let args = Args::parse();
-    // println!("{:?}", args);
-    println!(
-        "Updating books ({}) using {} works\n",
-        &args.dir, args.nb_threads
-    );
+    setup_nb_threads(args.nb_threads);
+    let work_dir = Path::new(&args.dir);
     let now = SystemTime::now();
 
-    let book_files = get_book_files(&args.dir);
-    let nb_threads = args.nb_threads;
-    update_books(book_files, nb_threads);
-    post_action(&args.dir);
+    println!(
+        "Updating books in '{}' using {} workers\n",
+        &args.dir, args.nb_threads
+    );
+
+    let subcommand = args
+        .subcommand
+        .unwrap_or(Commands::Update { paths: vec![] });
+
+    match subcommand {
+        Commands::Update { paths } => {
+            let book_files: Vec<walkdir::DirEntry> = if paths.is_empty() {
+                get_book_files(work_dir)
+            } else {
+                paths
+                    .into_iter()
+                    .flat_map(|p| get_book_files(Path::new(&p)))
+                    .collect()
+            };
+            update_books(&book_files);
+            // book_files.sort_by(|a, b| a.metadata().unwrap().modified)
+        }
+    }
+
+    post_action(work_dir);
 
     if let Ok(dt) = now.elapsed() {
         println!("Time elasped : {}s", dt.as_secs());
     }
 }
 
-fn update_books(book_files: Vec<walkdir::DirEntry>, nb_threads: usize) -> Vec<book::BookResult> {
-    let nb_books = book_files.len();
-
-    let pool = ThreadPool::new(nb_threads);
-    let (sender, receiver) = channel();
-    let bar = ProgressBar::new(nb_books as u64);
-
-    bar.set_style(
-        ProgressStyle::default_bar().template(
-            "{prefix}\n[{elapsed}/{duration}] {wide_bar:white/orange} {pos:>3}/{len:3} ({percent}%)\n{msg}",
-        ),
-    );
-
-    for e in book_files {
-        let sender = sender.clone();
-        pool.execute(move || {
-            sender
-                .send(Book::new(e.path()).update())
-                .expect("channel will be there waiting for the pool");
-        });
+fn setup_nb_threads(nb_threads: usize) {
+    let custom_rayon_conf = rayon::ThreadPoolBuilder::new()
+        .num_threads(nb_threads)
+        .build_global();
+    if custom_rayon_conf.is_err() {
+        eprintln!(
+            "Could not use custom number of threads ({}), default number ({}) was used",
+            nb_threads,
+            rayon::current_num_threads()
+        );
     }
+}
 
-    receiver
-        .iter()
+
+fn update_books(book_files: &[walkdir::DirEntry]) {
+    let bar = ProgressBar::new(book_files.len() as u64);
+    let template_progress = ProgressStyle::with_template(
+        "\n{prefix}\n[{elapsed}/{duration}] {wide_bar} {pos:>3}/{len:3} ({percent}%)\n{msg}",
+    )
+    .unwrap_or_else(|err| {
+        eprintln!("{err}");
+        ProgressStyle::default_bar()
+    });
+    bar.set_style(template_progress);
+    book_files
+        .par_iter()
+        .map(|e| Book::new(e.path()).update())
         .inspect(|_| bar.inc(1))
         .inspect(|b_res| bar.set_prefix(b_res.name.clone()))
         .inspect(|b_res| match b_res.result {
@@ -89,13 +129,16 @@ fn update_books(book_files: Vec<walkdir::DirEntry>, nb_threads: usize) -> Vec<bo
                 let nb = format!("[{:>4}]", format!("-{}", n)).red().bold();
                 bar.println(format!("{} {}\n", nb, b_res.name));
             }
-            _ => (),
+            UpdateResult::Skipped => {
+                let prefix = String::from("[Skip]").blue().bold();
+                bar.println(format!("{} {}\n", prefix, b_res.name));
+            }
+            UpdateResult::Unsupported | UpdateResult::UpToDate => (),
         })
-        .take(nb_books)
-        .collect()
+        .count();
 }
 
-fn get_book_files(path: &str) -> Vec<walkdir::DirEntry> {
+fn get_book_files(path: &Path) -> Vec<walkdir::DirEntry> {
     WalkDir::new(path)
         .into_iter()
         .filter_map(std::result::Result::ok)
@@ -104,7 +147,7 @@ fn get_book_files(path: &str) -> Vec<walkdir::DirEntry> {
         .collect()
 }
 
-fn post_action(path: &str) {
+fn post_action(path: &Path) {
     // Remove empty files
     WalkDir::new(path)
         .into_iter()

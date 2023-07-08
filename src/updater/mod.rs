@@ -4,9 +4,10 @@ use std::path::Path;
 
 #[derive(Debug)]
 pub enum UpdateResult {
-    NotSupported,
+    Unsupported,
     UpToDate,
     Updated(u16),
+    Skipped,
     MoreChapterThanSource(u16),
 }
 
