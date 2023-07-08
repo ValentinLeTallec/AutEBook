@@ -23,7 +23,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use std::fs;
 use std::path::Path;
-use std::time::SystemTime;
 use walkdir::WalkDir;
 
 const EPUB: &str = "epub";
@@ -61,10 +60,6 @@ fn main() {
 
     match args.subcommand {
         Commands::Update { paths } => {
-            println!(
-                "Updating books in '{}' using {} workers\n",
-                &args.dir, args.nb_threads
-            );
             let book_files: Vec<walkdir::DirEntry> = if paths.is_empty() {
                 get_book_files(work_dir)
             } else {
@@ -74,10 +69,6 @@ fn main() {
                     .collect()
             };
             update_books(&book_files);
-
-            if let Ok(dt) = now.elapsed() {
-                println!("Time elasped : {}s", dt.as_secs());
-            }
         }
         Commands::Completions { shell } => clap_complete::generate(
             shell,
