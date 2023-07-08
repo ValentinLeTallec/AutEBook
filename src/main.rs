@@ -17,7 +17,7 @@ mod updater;
 use crate::book::Book;
 use crate::updater::UpdateResult;
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use colorful::Colorful;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
@@ -33,11 +33,7 @@ const EPUB: &str = "epub";
 #[clap(author, version, about, long_about = None, propagate_version = true)]
 struct Args {
     #[clap(subcommand)]
-    subcommand: Option<Commands>,
-
-    /// Path to the book to update
-    #[clap(short, long)]
-    path: Option<String>,
+    subcommand: Commands,
 
     /// Path to the work directory
     #[clap(short, long, default_value = "./")]
@@ -52,6 +48,9 @@ enum Commands {
     /// Update specific books, based on path(s) given,
     /// if no path is given will update the work directory
     Update { paths: Vec<String> },
+
+    /// Generate a SHELL completion script and print to stdout
+    Completions { shell: clap_complete::Shell },
 }
 
 fn main() {
@@ -60,17 +59,12 @@ fn main() {
     let work_dir = Path::new(&args.dir);
     let now = SystemTime::now();
 
-    println!(
-        "Updating books in '{}' using {} workers\n",
-        &args.dir, args.nb_threads
-    );
-
-    let subcommand = args
-        .subcommand
-        .unwrap_or(Commands::Update { paths: vec![] });
-
-    match subcommand {
+    match args.subcommand {
         Commands::Update { paths } => {
+            println!(
+                "Updating books in '{}' using {} workers\n",
+                &args.dir, args.nb_threads
+            );
             let book_files: Vec<walkdir::DirEntry> = if paths.is_empty() {
                 get_book_files(work_dir)
             } else {
@@ -80,15 +74,19 @@ fn main() {
                     .collect()
             };
             update_books(&book_files);
-            // book_files.sort_by(|a, b| a.metadata().unwrap().modified)
+
+            if let Ok(dt) = now.elapsed() {
+                println!("Time elasped : {}s", dt.as_secs());
+            }
         }
+        Commands::Completions { shell } => clap_complete::generate(
+            shell,
+            &mut Args::command(),
+            "autebooks",
+            &mut std::io::stdout(),
+        ),
     }
-
     post_action(work_dir);
-
-    if let Ok(dt) = now.elapsed() {
-        println!("Time elasped : {}s", dt.as_secs());
-    }
 }
 
 fn setup_nb_threads(nb_threads: usize) {
@@ -120,7 +118,7 @@ fn update_books(book_files: &[walkdir::DirEntry]) {
         .map(|e| Book::new(e.path()).update())
         .inspect(|_| bar.inc(1))
         .inspect(|b_res| bar.set_prefix(b_res.name.clone()))
-        .inspect(|b_res| match b_res.result {
+        .for_each(|b_res| match b_res.result {
             UpdateResult::Updated(n) => {
                 let nb = format!("[{:>4}]", format!("+{}", n)).green().bold();
                 bar.println(format!("{} {}\n", nb, b_res.name));
@@ -134,8 +132,7 @@ fn update_books(book_files: &[walkdir::DirEntry]) {
                 bar.println(format!("{} {}\n", prefix, b_res.name));
             }
             UpdateResult::Unsupported | UpdateResult::UpToDate => (),
-        })
-        .count();
+        });
 }
 
 fn get_book_files(path: &Path) -> Vec<walkdir::DirEntry> {
@@ -159,12 +156,4 @@ fn post_action(path: &Path) {
                 eprintln!("{} is empty but could not be deleted", f.path().display());
             });
         });
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
 }

@@ -17,6 +17,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.3.11", features = ["derive"] }
+clap_complete = "4.3.2"
 colorful = "0.2.2"
 epub = "2.1.1"
 indicatif ={ version = "0.17.5", features = ["rayon"]}
