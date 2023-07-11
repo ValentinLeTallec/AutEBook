@@ -2,6 +2,8 @@ mod fanficfare;
 pub use fanficfare::FanFicFare;
 use std::path::Path;
 
+use crate::book::Book;
+
 #[derive(Debug)]
 pub enum UpdateResult {
     Unsupported,
@@ -14,15 +16,16 @@ pub enum UpdateResult {
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum CreationResult {
-    Created(Box<Path>),
+    Created(Book),
     CouldNotCreate,
     CreationNotSupported,
 }
 
-pub trait Update {
+pub trait WebNovel {
     fn new() -> Self
     where
         Self: Sized;
     fn create(&self, path: &Path, url: &str) -> CreationResult;
     fn update(&self, path: &Path) -> UpdateResult;
+
 }

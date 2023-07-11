@@ -9,7 +9,6 @@
     clippy::wildcard_enum_match_arm,
     clippy::use_debug
 )]
-
 mod book;
 mod source;
 mod updater;
@@ -22,7 +21,7 @@ use colorful::Colorful;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 const EPUB: &str = "epub";
@@ -36,7 +35,7 @@ struct Args {
 
     /// Path to the work directory
     #[clap(short, long, default_value = "./")]
-    dir: String,
+    dir: PathBuf,
 
     /// Number of threads to use
     #[clap(short, long, default_value_t = 8)]
@@ -46,9 +45,13 @@ struct Args {
 enum Commands {
     /// Adds books to the work directory, based on the URL(s) given
     Add { urls: Vec<String> },
+
     /// Update specific books, based on path(s) given,
     /// if no path is given will update the work directory
-    Update { paths: Vec<String> },
+    Update { paths: Vec<PathBuf> },
+
+    /// Remove any 0 bytes epub in provided path(s)
+    Clean { paths: Vec<PathBuf> },
 
     /// Generate a SHELL completion script and print to stdout
     Completions { shell: clap_complete::Shell },
@@ -57,21 +60,22 @@ enum Commands {
 fn main() {
     let args = Args::parse();
     setup_nb_threads(args.nb_threads);
-    let work_dir = Path::new(&args.dir);
+    let work_dir = args.dir;
 
     match args.subcommand {
-        Commands::Add { urls } => create_books(&urls, work_dir),
-        Commands::Update { paths } => {
-            let book_files: Vec<walkdir::DirEntry> = if paths.is_empty() {
-                get_book_files(work_dir)
-            } else {
-                paths
-                    .into_iter()
-                    .flat_map(|p| get_book_files(Path::new(&p)))
-                    .collect()
-            };
+        Commands::Add { urls } => create_books(work_dir.as_path(), &urls),
+        Commands::Update { mut paths } => {
+            if paths.is_empty() {
+                paths.push(work_dir);
+            }
+
+            let book_files: Vec<walkdir::DirEntry> = paths
+                .into_iter()
+                .flat_map(|p| get_book_files(p.as_path()))
+                .collect();
             update_books(&book_files);
         }
+        Commands::Clean { paths } => paths.iter().for_each(|p| remove_empty_epub(p.as_path())),
         Commands::Completions { shell } => clap_complete::generate(
             shell,
             &mut Args::command(),
@@ -79,7 +83,6 @@ fn main() {
             &mut std::io::stdout(),
         ),
     }
-    post_action(work_dir);
 }
 
 fn setup_nb_threads(nb_threads: usize) {
@@ -95,42 +98,48 @@ fn setup_nb_threads(nb_threads: usize) {
     }
 }
 
-fn create_books(urls: &[String], dir: &Path) {
+fn create_books(dir: &Path, urls: &[String]) {
     let bar = get_progress_bar(urls.len() as u64);
 
-    urls.par_iter()
-        .inspect(|_| bar.inc(1))
-        .filter_map(|url| Some(Book::get_source(url)?.create(dir, url)))
-        .for_each(|b_res| match b_res {
-            CreationResult::Created(path) => bar.println(path.display().to_string()),
+    urls.par_iter().for_each(|url| {
+        bar.set_prefix(url.clone());
+        let creation_res = Book::create(dir, url);
+        bar.inc(1);
+
+        match creation_res {
+            CreationResult::Created(book) => bar.println(format!("{:.50}\n", book.name)),
             CreationResult::CouldNotCreate => eprintln!("Could not create"),
             CreationResult::CreationNotSupported => eprintln!("Not suported"),
-        });
+        }
+    });
 }
 
 fn update_books(book_files: &[walkdir::DirEntry]) {
     let bar = get_progress_bar(book_files.len() as u64);
 
-    book_files
-        .par_iter()
-        .map(|e| Book::new(e.path()).update())
-        .inspect(|_| bar.inc(1))
-        .inspect(|b_res| bar.set_prefix(b_res.name.clone()))
-        .for_each(|b_res| match b_res.result {
+    book_files.par_iter().for_each(|file| {
+        let book = Book::new(file.path());
+        bar.set_prefix(book.name.clone());
+
+        let update_res = book.update();
+        bar.inc(1);
+
+        match update_res {
             UpdateResult::Updated(n) => {
-                let nb = format!("[{:>4}]", format!("+{}", n)).green().bold();
-                bar.println(format!("{} {}\n", nb, b_res.name));
+                let nb = format!("[{n:>+4}]").green().bold();
+                bar.println(format!("{} {:.50}\n", nb, book.name));
             }
             UpdateResult::MoreChapterThanSource(n) => {
-                let nb = format!("[{:>4}]", format!("-{}", n)).red().bold();
-                bar.println(format!("{} {}\n", nb, b_res.name));
+                let nb = format!("[{n:>+4}]").red().bold();
+                bar.println(format!("{} {:.50}\n", nb, book.name));
             }
             UpdateResult::Skipped => {
                 let prefix = String::from("[Skip]").blue().bold();
-                bar.println(format!("{} {}\n", prefix, b_res.name));
+                bar.println(format!("{} {:.50}\n", prefix, book.name));
             }
             UpdateResult::Unsupported | UpdateResult::UpToDate => (),
-        });
+        }
+    });
 }
 
 fn get_progress_bar(len: u64) -> ProgressBar {
@@ -155,12 +164,12 @@ fn get_book_files(path: &Path) -> Vec<walkdir::DirEntry> {
         .collect()
 }
 
-fn post_action(path: &Path) {
-    // Remove empty files
+fn remove_empty_epub(path: &Path) {
     WalkDir::new(path)
         .into_iter()
         .filter_map(std::result::Result::ok)
         .filter(|e| e.file_type().is_file())
+        .filter(|e| e.path().extension().map_or(false, |v| v == EPUB))
         .filter(|e| e.metadata().map(|m| m.len() == 0).unwrap_or(false)) // File is empty
         .for_each(|f| {
             fs::remove_file(f.path()).unwrap_or_else(|_| {

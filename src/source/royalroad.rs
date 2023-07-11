@@ -1,6 +1,6 @@
 use super::Source;
 use crate::updater::FanFicFare;
-use crate::updater::Update;
+use crate::updater::WebNovel;
 use lazy_regex::regex;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -15,7 +15,7 @@ impl Source for RoyalRoad {
             self.id
         ))
     }
-    fn get_updater(&self) -> Option<Box<dyn Update>> {
+    fn get_updater(&self) -> Option<Box<dyn WebNovel>> {
         Some(Box::new(FanFicFare::new()))
     }
 

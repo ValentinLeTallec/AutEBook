@@ -1,6 +1,7 @@
+use crate::book::Book;
 use crate::updater::CreationResult;
-use crate::updater::Update;
 use crate::updater::UpdateResult;
+use crate::updater::WebNovel;
 
 // use rss::Channel;
 use lazy_regex::regex;
@@ -68,7 +69,7 @@ impl FanFicFare {
         Some(update_result)
     }
 
-    pub fn do_create(dir: &Path, url: &str) -> Option<CreationResult> {
+    fn do_create(dir: &Path, url: &str) -> Option<CreationResult> {
         let cmd = Command::new("fanficfare")
             .arg("--non-interactive")
             .arg("--json-meta")
@@ -96,13 +97,11 @@ impl FanFicFare {
             return None;
         }
 
-        Some(CreationResult::Created(
-            dir.join(filename).into_boxed_path(),
-        ))
+        Some(CreationResult::Created(Book::new(&dir.join(filename))))
     }
 }
 
-impl Update for FanFicFare {
+impl WebNovel for FanFicFare {
     fn new() -> Self {
         Self {}
     }
