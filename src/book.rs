@@ -11,6 +11,7 @@ use std::path::Path;
 pub struct Book {
     pub name: String,
     pub path: Box<Path>,
+    url: String,
     updater: Option<Box<dyn WebNovel>>,
 }
 
@@ -27,11 +28,12 @@ impl Book {
     }
 
     pub fn new(path: &Path) -> Self {
-        let book_url = Self::get_book_url(path).unwrap_or_default();
-        let source = source::get(&book_url);
+        let url = Self::get_book_url(path).unwrap_or_default();
+        let source = source::get(&url);
         let name = Self::get_book_name(path).unwrap_or_else(|| String::from("Unknown Title"));
         Self {
             name,
+            url,
             path: path.to_path_buf().into_boxed_path(),
             updater: source.get_updater(),
         }
@@ -44,7 +46,7 @@ impl Book {
     }
 
     pub fn create(dir: &Path, url: &str) -> CreationResult {
-        Self::get_source(url).map_or(CreationResult::CreationNotSupported, |s| s.create(dir, url))
+        Self::get_source(url).map_or(CreationResult::Unsupported, |s| s.create(dir, url))
     }
 
     // async fn example_feed() -> Result<Channel, Box<dyn Error>> {

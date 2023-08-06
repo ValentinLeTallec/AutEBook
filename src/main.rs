@@ -113,7 +113,7 @@ fn create_books(dir: &Path, urls: &[String]) {
         match creation_res {
             CreationResult::Created(book) => bar.println(format!("{:.50}\n", book.name)),
             CreationResult::CouldNotCreate => eprintln!("Could not create"),
-            CreationResult::CreationNotSupported => eprintln!("Not suported"),
+            CreationResult::Unsupported => eprintln!("Not suported"),
         }
     });
 }
