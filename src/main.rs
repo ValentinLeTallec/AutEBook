@@ -26,31 +26,35 @@ use walkdir::WalkDir;
 
 const EPUB: &str = "epub";
 
-/// A small utility used to update books by levraging `FanFicFare`
+/// A small utility used to obtain and update web novels as e-books.
+/// It currently levrage `FanFicFare` but is extensible to other updaters.
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None, propagate_version = true)]
 struct Args {
     #[clap(subcommand)]
     subcommand: Commands,
 
-    /// Path to the work directory
-    #[clap(short, long, default_value = "./")]
+    /// Path to the work directory.
+    #[clap(short, long, default_value = "./", value_hint = clap::ValueHint::DirPath)]
     dir: PathBuf,
 
-    /// Number of threads to use
+    /// Number of threads to use.
     #[clap(short, long, default_value_t = 8)]
     nb_threads: usize,
 }
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Adds books to the work directory, based on the URL(s) given
+    /// Adds books to the work directory, based on the URL(s) given.
     Add { urls: Vec<String> },
 
     /// Update specific books, based on path(s) given,
-    /// if no path is given will update the work directory
-    Update { paths: Vec<PathBuf> },
+    /// if no path is given it will update the work directory.
+    Update {
+        /// List of directories containing books to update
+        paths: Vec<PathBuf>,
+    },
 
-    /// Remove any 0 bytes epub in provided path(s)
+    /// Recursively remove any 0 bytes epub in provided path(s)
     Clean { paths: Vec<PathBuf> },
 
     /// Generate a SHELL completion script and print to stdout
