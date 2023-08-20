@@ -14,9 +14,9 @@ mod source;
 mod updater;
 
 use crate::book::Book;
-use crate::updater::{CreationResult, UpdateResult};
-
+use crate::updater::UpdateResult;
 use clap::{CommandFactory, Parser, Subcommand};
+use color_eyre::eyre::Result;
 use colorful::Colorful;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
@@ -61,7 +61,8 @@ enum Commands {
     Completions { shell: clap_complete::Shell },
 }
 
-fn main() {
+fn main() -> Result<()> {
+    color_eyre::install()?;
     let args = Args::parse();
     setup_nb_threads(args.nb_threads);
     let work_dir = args.dir;
@@ -87,6 +88,7 @@ fn main() {
             &mut std::io::stdout(),
         ),
     }
+    Ok(())
 }
 
 fn setup_nb_threads(nb_threads: usize) {
@@ -111,9 +113,8 @@ fn create_books(dir: &Path, urls: &[String]) {
         bar.inc(1);
 
         match creation_res {
-            CreationResult::Created(book) => bar.println(format!("{:.50}\n", book.name)),
-            CreationResult::CouldNotCreate => eprintln!("Could not create"),
-            CreationResult::Unsupported => eprintln!("Not suported"),
+            Ok(book) => bar.println(format!("{:.50}\n", book.name)),
+            Err(e) => eprintln!("{e}"),
         }
     });
 }

@@ -1,10 +1,11 @@
 use crate::source;
-use crate::updater::CreationResult;
+use crate::updater::Unsupported;
 use crate::updater::UpdateResult;
 use crate::updater::WebNovel;
 
 use epub::doc::EpubDoc;
 // use rss::Channel;
+use color_eyre::Result;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 
@@ -45,8 +46,8 @@ impl Book {
             .map_or(UpdateResult::Unsupported, |s| s.update(&self.path))
     }
 
-    pub fn create(dir: &Path, url: &str) -> CreationResult {
-        Self::get_source(url).map_or(CreationResult::Unsupported, |s| s.create(dir, url))
+    pub fn create(dir: &Path, url: &str) -> Result<Self> {
+        Self::get_source(url).map_or(Err(Unsupported.into()), |s| s.create(dir, url))
     }
 
     // async fn example_feed() -> Result<Channel, Box<dyn Error>> {
