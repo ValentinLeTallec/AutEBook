@@ -2,11 +2,7 @@ mod fanficfare;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 pub use fanficfare::FanFicFare;
-use std::{
-    ffi::{OsStr},
-    fs,
-    path::Path,
-};
+use std::{ffi::OsStr, fs, path::Path};
 use thiserror::Error;
 
 use crate::book::Book;
