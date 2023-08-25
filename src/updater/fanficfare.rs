@@ -1,11 +1,22 @@
-use crate::updater::Update;
+use crate::book::Book;
 use crate::updater::UpdateResult;
+use crate::updater::WebNovel;
 
 // use rss::Channel;
+use color_eyre::eyre::{bail, eyre};
+use color_eyre::Result;
 use lazy_regex::regex;
+use serde::Deserialize;
+use std::ffi::OsStr;
+use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
+
+#[derive(Deserialize)]
+struct FanFicFareJson {
+    output_filename: String,
+}
 
 pub struct FanFicFare;
 
@@ -61,10 +72,54 @@ impl FanFicFare {
         Some(update_result)
     }
 }
-impl Update for FanFicFare {
+
+impl WebNovel for FanFicFare {
     fn new() -> Self {
         Self {}
     }
+    fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<Book> {
+        let cmd = Command::new("fanficfare")
+            .arg("--non-interactive")
+            .arg("--json-meta")
+            .arg(url)
+            .current_dir(dir)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        // Retrieve the metadata of the newly created book
+        let stdout = cmd.stdout.ok_or_else(|| eyre!("Stdout is unavailable"))?;
+        let book_metadata = BufReader::new(stdout)
+            .lines()
+            .map_while(Result::ok)
+            .reduce(|accum, line| accum + &line)
+            .ok_or_else(|| eyre!("Failed to read book metadata."))?;
+
+        let generated_filename =
+            serde_json::from_str::<FanFicFareJson>(&book_metadata).map(|e| e.output_filename)?;
+
+        // Manage error cases
+        let err_lines: String = cmd.stderr.map_or(String::new(), |stderr| {
+            BufReader::new(stderr)
+                .lines()
+                .map_while(Result::ok)
+                .collect()
+        });
+
+        if !err_lines.is_empty() {
+            bail!("The execution of Fanficfare for '{url}'' ended with an error \n{err_lines}");
+        }
+
+        let mut file_path = dir.join(generated_filename);
+        if let Some(filename) = filename {
+            let new_file_path = dir.join(filename);
+            fs::rename(file_path, &new_file_path)?;
+            file_path = new_file_path;
+        }
+
+        Ok(Book::new(&file_path))
+    }
+
     fn update(&self, path: &Path) -> UpdateResult {
         Self::do_update(path).unwrap_or(UpdateResult::Unsupported)
     }

@@ -1,5 +1,5 @@
 mod royalroad;
-use crate::updater::Update;
+use crate::updater::WebNovel;
 
 use self::royalroad::RoyalRoad;
 
@@ -7,7 +7,7 @@ pub trait Source {
     fn new(url: &str) -> Option<Self>
     where
         Self: Sized;
-    fn get_updater(&self) -> Option<Box<dyn Update>> {
+    fn get_updater(&self) -> Option<Box<dyn WebNovel>> {
         None
     }
     fn get_syndication_url(&self) -> Option<String> {
