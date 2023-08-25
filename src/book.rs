@@ -50,6 +50,12 @@ impl Book {
         Self::get_source(url).map_or(Err(Unsupported.into()), |s| s.create(dir, url))
     }
 
+    pub fn stash_and_recreate(&self, stash_dir: &Path) -> Result<Self> {
+        self.updater.as_ref().map_or(Err(Unsupported.into()), |s| {
+            s.stash_and_recreate(&self.path, stash_dir, &self.url)
+        })
+    }
+
     // async fn example_feed() -> Result<Channel, Box<dyn Error>> {
     //     let content = reqwest::get("http://example.com/feed.xml")
     //         .await?

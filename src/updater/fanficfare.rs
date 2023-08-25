@@ -80,6 +80,7 @@ impl WebNovel for FanFicFare {
             .arg("--non-interactive")
             .arg("--json-meta")
             .arg(url)
+            .current_dir(dir)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
@@ -96,14 +97,20 @@ impl WebNovel for FanFicFare {
             serde_json::from_str::<FanFicFareJson>(&book_metadata).map(|e| e.output_filename)?;
 
         // Manage error cases
-        let nb_err_lines = cmd
-            .stderr
-            .map(|stderr| BufReader::new(stderr).lines().map_while(Result::ok).count());
-        if nb_err_lines.is_some_and(|n| n > 0) {
-            bail!("The execution of Fanficfare ended with an error")
+        let err_lines: String = cmd.stderr.map_or(String::new(), |stderr| {
+            BufReader::new(stderr)
+                .lines()
+                .map_while(Result::ok)
+                .collect()
+        });
+
+        if !err_lines.is_empty() {
+            bail!("The execution of Fanficfare for '{url}'' ended with an error \n{err_lines}");
         }
+
         Ok(Book::new(&dir.join(filename)))
     }
+
     fn update(&self, path: &Path) -> UpdateResult {
         Self::do_update(path).unwrap_or(UpdateResult::Unsupported)
     }

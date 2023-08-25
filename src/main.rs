@@ -9,6 +9,7 @@
     clippy::wildcard_enum_match_arm,
     clippy::use_debug
 )]
+#![allow(clippy::multiple_crate_versions)]
 mod book;
 mod source;
 mod updater;
@@ -52,6 +53,15 @@ enum Commands {
     Update {
         /// List of directories containing books to update
         paths: Vec<PathBuf>,
+
+        /// Stash books which contains more chapters than source in the folder defined in 'stash_dir'
+        /// and recreate them from source
+        #[clap(short, long)]
+        stash: bool,
+
+        /// The directory where to store the stash, is relative to the update path
+        #[clap(short = 'd', long, default_value = "./stashed", value_hint = clap::ValueHint::DirPath)]
+        stash_dir: PathBuf,
     },
 
     /// Recursively remove any 0 bytes epub in provided path(s)
@@ -59,6 +69,18 @@ enum Commands {
 
     /// Generate a SHELL completion script and print to stdout
     Completions { shell: clap_complete::Shell },
+}
+
+struct FileToUpdate {
+    file_path: walkdir::DirEntry,
+    stash_path: PathBuf,
+}
+
+macro_rules! summary {
+    ($s:expr, $book_name:expr, $color:ident) => {{
+        let prefix = format!("[{:>+4}]", $s).bold().$color();
+        format!("{} {:.50}\n", prefix, $book_name)
+    }};
 }
 
 fn main() -> Result<()> {
@@ -69,16 +91,31 @@ fn main() -> Result<()> {
 
     match args.subcommand {
         Commands::Add { urls } => create_books(work_dir.as_path(), &urls),
-        Commands::Update { mut paths } => {
+        Commands::Update {
+            mut paths,
+            stash,
+            stash_dir,
+        } => {
             if paths.is_empty() {
                 paths.push(work_dir);
             }
 
-            let book_files: Vec<walkdir::DirEntry> = paths
+            let book_files: Vec<FileToUpdate> = paths
                 .into_iter()
-                .flat_map(|p| get_book_files(p.as_path()))
+                .map(|p| (get_book_files(p.as_path()), p.join(&stash_dir)))
+                .flat_map(|(files, stash_path)| {
+                    let len = files.len();
+                    files
+                        .into_iter()
+                        .zip(std::iter::repeat(stash_path).take(len))
+                })
+                .map(|(file_path, stash_path)| FileToUpdate {
+                    file_path,
+                    stash_path,
+                })
                 .collect();
-            update_books(&book_files);
+
+            update_books(&book_files, stash);
         }
         Commands::Clean { paths } => paths.iter().for_each(|p| remove_empty_epub(p.as_path())),
         Commands::Completions { shell } => clap_complete::generate(
@@ -119,31 +156,28 @@ fn create_books(dir: &Path, urls: &[String]) {
     });
 }
 
-fn update_books(book_files: &[walkdir::DirEntry]) {
+fn update_books(book_files: &[FileToUpdate], stash: bool) {
     let bar = get_progress_bar(book_files.len() as u64);
 
-    book_files.par_iter().for_each(|file| {
-        let book = Book::new(file.path());
+    book_files.par_iter().for_each(|file_to_update| {
+        let book = Book::new(file_to_update.file_path.path());
         bar.set_prefix(book.name.clone());
 
-        let update_res = book.update();
-        bar.inc(1);
-
-        match update_res {
-            UpdateResult::Updated(n) => {
-                let nb = format!("[{n:>+4}]").green().bold();
-                bar.println(format!("{} {:.50}\n", nb, book.name));
-            }
+        match book.update() {
+            UpdateResult::Updated(n) => bar.println(summary!(n, book.name, green)),
+            UpdateResult::Skipped => bar.println(summary!("Skip", book.name, blue)),
             UpdateResult::MoreChapterThanSource(n) => {
-                let nb = format!("[{n:>+4}]").red().bold();
-                bar.println(format!("{} {:.50}\n", nb, book.name));
-            }
-            UpdateResult::Skipped => {
-                let prefix = String::from("[Skip]").blue().bold();
-                bar.println(format!("{} {:.50}\n", prefix, book.name));
+                bar.println(summary!(-i32::from(n), book.name, red));
+                if stash {
+                    match book.stash_and_recreate(&file_to_update.stash_path) {
+                        Ok(book) => bar.println(summary!("New", book.name, light_green)),
+                        Err(e) => eprintln!("{e}"),
+                    }
+                }
             }
             UpdateResult::Unsupported | UpdateResult::UpToDate => (),
         }
+        bar.inc(1);
     });
 }
 
