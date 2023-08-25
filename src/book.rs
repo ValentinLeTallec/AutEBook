@@ -47,7 +47,7 @@ impl Book {
     }
 
     pub fn create(dir: &Path, url: &str) -> Result<Self> {
-        Self::get_source(url).map_or(Err(Unsupported.into()), |s| s.create(dir, url))
+        Self::get_source(url).map_or(Err(Unsupported.into()), |s| s.create(dir, None, url))
     }
 
     pub fn stash_and_recreate(&self, stash_dir: &Path) -> Result<Self> {

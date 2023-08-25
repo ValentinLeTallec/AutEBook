@@ -2,7 +2,11 @@ mod fanficfare;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 pub use fanficfare::FanFicFare;
-use std::{fs, path::Path};
+use std::{
+    ffi::{OsStr},
+    fs,
+    path::Path,
+};
 use thiserror::Error;
 
 use crate::book::Book;
@@ -26,7 +30,7 @@ pub trait WebNovel {
         Self: Sized;
 
     #[allow(unused_variables)]
-    fn create(&self, path: &Path, url: &str) -> Result<Book> {
+    fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<Book> {
         Err(Unsupported.into())
     }
     #[allow(unused_variables)]
@@ -39,24 +43,29 @@ pub trait WebNovel {
             .parent()
             .ok_or_else(|| eyre!("Could not retrieve the book's parent directory."))?;
 
+        let original_filename = book
+            .file_name()
+            .ok_or_else(|| eyre!("Could not retrieve the book's filename."))?
+            .to_owned();
+
         // Stashing of the current instance of the book in an sub-directory
         let timestamp = chrono::Utc::now().format("_%Y-%m-%d_%Hh%M").to_string();
         let extension = book
             .extension()
             .ok_or_else(|| eyre!("Could not retrieve the book's extension."))?;
 
-        let mut filename = book
+        let mut stashed_filename = book
             .file_stem()
             .ok_or_else(|| eyre!("Could not retrieve the book's filename."))?
             .to_owned();
-        filename.push(timestamp);
-        filename.push(".");
-        filename.push(extension);
+        stashed_filename.push(timestamp);
+        stashed_filename.push(".");
+        stashed_filename.push(extension);
 
         fs::create_dir_all(stash_folder)?;
-        fs::rename(book, stash_folder.join(filename))?;
+        fs::rename(book, stash_folder.join(stashed_filename))?;
 
         // Creation of the new instance of the book
-        self.create(parent_dir, url)
+        self.create(parent_dir, Some(&original_filename), url)
     }
 }

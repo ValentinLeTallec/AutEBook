@@ -7,6 +7,8 @@ use color_eyre::eyre::{bail, eyre};
 use color_eyre::Result;
 use lazy_regex::regex;
 use serde::Deserialize;
+use std::ffi::OsStr;
+use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -75,7 +77,7 @@ impl WebNovel for FanFicFare {
     fn new() -> Self {
         Self {}
     }
-    fn create(&self, dir: &Path, url: &str) -> Result<Book> {
+    fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<Book> {
         let cmd = Command::new("fanficfare")
             .arg("--non-interactive")
             .arg("--json-meta")
@@ -93,7 +95,7 @@ impl WebNovel for FanFicFare {
             .reduce(|accum, line| accum + &line)
             .ok_or_else(|| eyre!("Failed to read book metadata."))?;
 
-        let filename =
+        let generated_filename =
             serde_json::from_str::<FanFicFareJson>(&book_metadata).map(|e| e.output_filename)?;
 
         // Manage error cases
@@ -108,7 +110,14 @@ impl WebNovel for FanFicFare {
             bail!("The execution of Fanficfare for '{url}'' ended with an error \n{err_lines}");
         }
 
-        Ok(Book::new(&dir.join(filename)))
+        let mut file_path = dir.join(generated_filename);
+        if let Some(filename) = filename {
+            let new_file_path = dir.join(filename);
+            fs::rename(file_path, &new_file_path)?;
+            file_path = new_file_path;
+        }
+
+        Ok(Book::new(&file_path))
     }
 
     fn update(&self, path: &Path) -> UpdateResult {

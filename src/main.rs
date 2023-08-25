@@ -59,7 +59,8 @@ enum Commands {
         #[clap(short, long)]
         stash: bool,
 
-        /// The directory where to store the stash, is relative to the update path
+        /// The directory where stashed books are stored (books in this folder are excuded from updates).
+        /// It is relative to the update path.
         #[clap(short = 'd', long, default_value = "./stashed", value_hint = clap::ValueHint::DirPath)]
         stash_dir: PathBuf,
     },
@@ -102,17 +103,7 @@ fn main() -> Result<()> {
 
             let book_files: Vec<FileToUpdate> = paths
                 .into_iter()
-                .map(|p| (get_book_files(p.as_path()), p.join(&stash_dir)))
-                .flat_map(|(files, stash_path)| {
-                    let len = files.len();
-                    files
-                        .into_iter()
-                        .zip(std::iter::repeat(stash_path).take(len))
-                })
-                .map(|(file_path, stash_path)| FileToUpdate {
-                    file_path,
-                    stash_path,
-                })
+                .flat_map(|p| get_book_files(&p, &p.join(&stash_dir)))
                 .collect();
 
             update_books(&book_files, stash);
@@ -194,12 +185,17 @@ fn get_progress_bar(len: u64) -> ProgressBar {
     bar
 }
 
-fn get_book_files(path: &Path) -> Vec<walkdir::DirEntry> {
+fn get_book_files(path: &PathBuf, stash_dir: &PathBuf) -> Vec<FileToUpdate> {
     WalkDir::new(path)
         .into_iter()
         .filter_map(std::result::Result::ok)
+        .filter(|e| e.path().parent().is_some_and(|p| *p != *stash_dir))
         .filter(|e| e.file_type().is_file())
         .filter(|e| e.path().extension().map_or(false, |v| v == EPUB))
+        .map(|e| FileToUpdate {
+            file_path: e,
+            stash_path: stash_dir.clone(),
+        })
         .collect()
 }
 
