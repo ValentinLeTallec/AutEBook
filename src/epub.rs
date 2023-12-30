@@ -1,9 +1,16 @@
+use crate::cache::Cache;
 use crate::xml_ext::write_elements;
+use eyre::bail;
+use image::codecs::gif::GifEncoder;
+use image::codecs::jpeg::JpegEncoder;
+use image::codecs::png::{CompressionType, FilterType, PngEncoder};
+use image::io::Reader;
 use regex::Regex;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use std::io::Write;
+use std::io::{Cursor, Write};
 use uuid::Uuid;
+use webp::Decoder;
 use xml::writer::XmlEvent;
 use xml::EmitterConfig;
 
@@ -159,7 +166,7 @@ pub struct Chapter {
     pub authors_note_end: Option<String>,
 }
 
-pub fn write_epub(book: &Book, outfile: &str) -> eyre::Result<()> {
+pub async fn write_epub(book: &Book, outfile: &str) -> eyre::Result<()> {
     // Create a temp dir.
     let temp_folder = tempfile::tempdir()?;
 
@@ -199,13 +206,33 @@ pub fn write_epub(book: &Book, outfile: &str) -> eyre::Result<()> {
             zip::write::FileOptions::default(),
         )?;
         chapter_html(chapter, &mut epub_file)?;
+
+        // Parse and download each inline image.
+        let content = chapter.content.clone().unwrap_or("".to_string());
+        let images = parse_images(&content)?;
+        if !images.is_empty() {
+            tracing::info!("Downloading inline images for chapter '{}'.", chapter.title);
+            for url in images.iter() {
+                epub_file.start_file(
+                    format!(
+                        "OEBPS/images/{}",
+                        url.split('/')
+                            .last()
+                            .ok_or(eyre::eyre!("No image name found"))?
+                    ),
+                    zip::write::FileOptions::default(),
+                )?;
+                download_image(book, url.to_string(), &mut epub_file).await?;
+            }
+        }
     }
 
     // Write the cover.
-    if let Some(cover) = &book.cover {
-        epub_file.start_file("OEBPS/images/cover.jpg", zip::write::FileOptions::default())?;
-        epub_file.write_all(cover)?;
-    }
+    epub_file.start_file(
+        "OEBPS/images/cover.jpeg",
+        zip::write::FileOptions::default(),
+    )?;
+    download_image(book, book.cover_url.clone(), &mut epub_file).await?;
 
     // Write the title page.
     epub_file.start_file("OEBPS/text/title.xhtml", zip::write::FileOptions::default())?;
@@ -255,7 +282,7 @@ fn title_html(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
             XmlEvent::start_element("body").into(),
             // Write the cover.
             XmlEvent::start_element("img")
-                .attr("src", "../images/cover.jpg")
+                .attr("src", "../images/cover.jpeg")
                 .attr("alt", "Cover")
                 .attr("class", "cover")
                 .into(),
@@ -326,14 +353,15 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
         )?;
     }
     // Write the content.
-    if let Some(content) = &chapter.content {
+    if let Some(content) = chapter.content.clone() {
         write_elements(
             &mut xml,
             vec![
                 XmlEvent::start_element("div")
                     .attr("class", "chapter-content")
                     .into(),
-                XmlEvent::characters(content),
+                // Rewrite the images to be pointing to our downloaded ones.
+                XmlEvent::characters(&rewrite_images(content)?),
                 XmlEvent::end_element().into(),
             ],
         )?;
@@ -446,7 +474,7 @@ fn content_opf(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
             // Write the cover.
             XmlEvent::start_element("item")
                 .attr("id", "cover")
-                .attr("href", "images/cover.jpg")
+                .attr("href", "images/cover.jpeg")
                 .attr("media-type", "image/jpeg")
                 .into(),
             XmlEvent::end_element().into(),
@@ -605,6 +633,125 @@ fn toc_ncx(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
             XmlEvent::end_element().into(),
         ],
     )?;
+
+    Ok(())
+}
+
+fn parse_images(body: &str) -> eyre::Result<Vec<String>> {
+    let parsed = Html::parse_fragment(body);
+    let selector = Selector::parse("img").unwrap();
+
+    let mut sources = Vec::new();
+    for element in parsed.select(&selector) {
+        if let Some(src) = element.value().attr("src") {
+            sources.push(src.to_string());
+        }
+    }
+    Ok(sources)
+}
+fn rewrite_images(mut body: String) -> eyre::Result<String> {
+    let parsed = Html::parse_fragment(&body);
+    let selector = Selector::parse("img").unwrap();
+
+    for element in parsed.select(&selector) {
+        if let Some(src) = element.value().attr("src") {
+            let new_src = format!("../images/{}", src.split('/').last().unwrap());
+            body = body.replace(src, &new_src);
+        }
+    }
+    Ok(body)
+}
+
+fn is_png(bytes: &[u8]) -> bool {
+    bytes.len() > 8
+        && bytes[0] == 0x89
+        && bytes[1] == 0x50
+        && bytes[2] == 0x4E
+        && bytes[3] == 0x47
+        && bytes[4] == 0x0D
+        && bytes[5] == 0x0A
+        && bytes[6] == 0x1A
+        && bytes[7] == 0x0A
+}
+fn is_jpeg(bytes: &[u8]) -> bool {
+    bytes.len() > 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF
+}
+fn is_webp(bytes: &[u8]) -> bool {
+    bytes.len() > 11
+        && bytes[0] == 0x52
+        && bytes[1] == 0x49
+        && bytes[2] == 0x46
+        && bytes[3] == 0x46
+        && bytes[8] == 0x57
+        && bytes[9] == 0x45
+        && bytes[10] == 0x42
+        && bytes[11] == 0x50
+}
+
+async fn download_image(book: &Book, url: String, file: &mut impl Write) -> eyre::Result<()> {
+    match Cache::read_inline_image(book, &url)? {
+        Some(image) => {
+            file.write_all(&image)?;
+        }
+        None => {
+            let client = reqwest::Client::new();
+            let image = client
+                .get(&url)
+                .header("User-Agent", USER_AGENT)
+                .send()
+                .await?
+                .error_for_status()?;
+            let bytes = image.bytes().await?;
+
+            // Decode the image.
+            let image = if is_png(&bytes) || is_jpeg(&bytes) {
+                Reader::new(Cursor::new(&bytes))
+                    .with_guessed_format()?
+                    .decode()?
+            } else if is_webp(&bytes) {
+                let webp = Decoder::new(&bytes).decode().ok_or(eyre::eyre!(
+                    "Failed to decode webp image. Please report this as a bug and include the following URL: {}",
+                    url
+                ))?;
+                webp.to_image()
+            } else {
+                bail!("Unsupported inline image format. Please report this as a bug and include the following URL: {}", url);
+            };
+
+            // Resize to max width of 600px.
+            let width = image.width();
+            let height = image.height();
+            let image = image.resize(
+                600,
+                600 * height / width,
+                image::imageops::FilterType::Lanczos3,
+            );
+
+            // Encode the image.
+            let mut buffer = Vec::new();
+            if is_png(&bytes) || is_webp(&bytes) {
+                // We write both PNG and WebP as PNG because WebP is not supported by some ebook readers.
+                image.write_with_encoder(PngEncoder::new_with_quality(
+                    Cursor::new(&mut buffer),
+                    CompressionType::Fast,
+                    FilterType::Adaptive,
+                ))?;
+            } else if is_jpeg(&bytes) {
+                image.write_with_encoder(JpegEncoder::new_with_quality(
+                    Cursor::new(&mut buffer),
+                    80,
+                ))?;
+            } else {
+                bail!("Unsupported inline image format. Please report this as a bug and include the following URL: {}", url);
+            };
+
+            // Save the image in the cache.
+            Cache::write_inline_image(book, &url, &buffer)?;
+
+            // Write the image to the file.
+            file.write_all(&buffer)?;
+        }
+    }
 
     Ok(())
 }

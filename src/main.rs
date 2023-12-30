@@ -3,6 +3,7 @@ use crate::epub::write_epub;
 use clap::Parser;
 
 mod api;
+mod cache;
 mod epub;
 mod xml_ext;
 
@@ -51,7 +52,8 @@ async fn run() -> eyre::Result<()> {
         out_file.to_str().ok_or(eyre::eyre!(
             "Invalid output folder, path contains non-UTF8 characters"
         ))?,
-    )?;
+    )
+    .await?;
     tracing::info!("Wrote EPUB to {:?}", out_file);
 
     Ok(())
