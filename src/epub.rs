@@ -1,5 +1,6 @@
 use crate::cache::Cache;
 use crate::xml_ext::write_elements;
+use crate::Args;
 use eyre::bail;
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
@@ -165,7 +166,7 @@ pub struct Chapter {
     pub authors_note_end: Option<String>,
 }
 
-pub async fn write_epub(book: &Book, outfile: &str) -> eyre::Result<()> {
+pub async fn write_epub(args: &Args, book: &Book, outfile: &str) -> eyre::Result<()> {
     // Create a temp dir.
     let temp_folder = tempfile::tempdir()?;
 
@@ -204,7 +205,7 @@ pub async fn write_epub(book: &Book, outfile: &str) -> eyre::Result<()> {
             format!("OEBPS/text/{}.xhtml", chapter.id),
             zip::write::FileOptions::default(),
         )?;
-        chapter_html(chapter, &mut epub_file)?;
+        chapter_html(args, chapter, &mut epub_file)?;
 
         // Parse and download each inline image.
         let content = chapter.content.clone().unwrap_or("".to_string());
@@ -299,7 +300,7 @@ fn title_html(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
     Ok(())
 }
 
-fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
+fn chapter_html(args: &Args, chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
     let mut xml = EmitterConfig::new().perform_indent(true);
     xml.perform_escaping = false;
     let mut xml = xml.create_writer(file);
@@ -352,7 +353,20 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
         )?;
     }
     // Write the content.
-    if let Some(content) = chapter.content.clone() {
+    if let Some(mut content) = chapter.content.clone() {
+        if args.remove_font_family {
+            // Remove the font-family: *; from styles.
+            let font_family_regex = Regex::new(r#"font-family:.*?;"#).unwrap();
+            content = font_family_regex.replace_all(&content, "").to_string();
+        }
+        if args.remove_normal_font_weight {
+            // Remove font-weight: normal; and font-weight: 400; from styles.
+            let font_weight_regex = Regex::new(r#"font-weight: normal;"#).unwrap();
+            content = font_weight_regex.replace_all(&content, "").to_string();
+            let font_weight_regex = Regex::new(r#"font-weight: 400;"#).unwrap();
+            content = font_weight_regex.replace_all(&content, "").to_string();
+        }
+
         write_elements(
             &mut xml,
             vec![

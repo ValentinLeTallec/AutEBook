@@ -12,13 +12,25 @@ pub struct Args {
     /// The file path to write the EPUB to.  
     /// Must end in .epub for parsing to work correctly in most applications.
     pub output_file: String,
+
     #[arg(long = "book-id", short = 'b')]
     /// The ID of the book to download. Can be found in the URL of the book.  
     /// Example: https://www.royalroad.com/fiction/12345/my-book has an ID of 12345.
     pub book_id: u32,
+
     #[arg(long = "ignore-cache")]
     /// Ignore the cache and redownload all chapters.
     pub ignore_cache: bool,
+
+    #[arg(long = "remove-normal-font-weight")]
+    /// Some authors force their text to use "normal" font weight.
+    /// This flag removes that and uses the reader app's default.
+    pub remove_normal_font_weight: bool,
+
+    #[arg(long = "remove-font-family")]
+    /// Some authors override the font family.
+    /// This flag removes that and uses the reader app's default.
+    pub remove_font_family: bool,
 }
 
 #[tokio::main]
@@ -48,6 +60,7 @@ async fn run() -> eyre::Result<()> {
     let api = RoyalRoadApi::new();
     let book = api.get_book(args.book_id, args.ignore_cache).await?;
     write_epub(
+        &args,
         &book,
         out_file.to_str().ok_or(eyre::eyre!(
             "Invalid output folder, path contains non-UTF8 characters"
