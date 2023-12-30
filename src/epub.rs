@@ -1,7 +1,6 @@
 use crate::cache::Cache;
 use crate::xml_ext::write_elements;
 use eyre::bail;
-use image::codecs::gif::GifEncoder;
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
 use image::io::Reader;
