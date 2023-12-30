@@ -7,6 +7,8 @@ use uuid::Uuid;
 use xml::writer::XmlEvent;
 use xml::EmitterConfig;
 
+const USER_AGENT: &str = "rr-to-epub <https://github.com/isaac-mcfadyen/rr-to-epub>";
+
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Book {
     pub id: u32,
@@ -31,7 +33,7 @@ impl Book {
 
         let request = client
             .get(format!("https://www.royalroad.com/fiction/{}", id))
-            .header("User-Agent", "rr-to-epub <isaac@imcf.me>")
+            .header("User-Agent", USER_AGENT)
             .send()
             .await?
             .error_for_status()?;
@@ -85,7 +87,7 @@ impl Book {
         let cover = self
             .client
             .get(&self.cover_url)
-            .header("User-Agent", "rr-to-epub <isaac@imcf.me>")
+            .header("User-Agent", USER_AGENT)
             .send()
             .await?
             .error_for_status()?;
