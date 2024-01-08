@@ -41,19 +41,17 @@ impl Cache {
         };
         Ok(Some(book))
     }
-    pub fn write_inline_image(book: &Book, url: &str, image: &[u8]) -> eyre::Result<()> {
+    pub fn write_inline_image(book: &Book, filename: &str, image: &[u8]) -> eyre::Result<()> {
         let cache_dir = Self::cache_path()?.join(book.id.to_string()).join("images");
         std::fs::create_dir_all(&cache_dir)?;
-        let filename = url.split('/').last().unwrap();
 
         // Write the image to the cache.
         let cache_file = cache_dir.join(filename);
         std::fs::write(cache_file, image)?;
         Ok(())
     }
-    pub fn read_inline_image(book: &Book, url: &str) -> eyre::Result<Option<Bytes>> {
+    pub fn read_inline_image(book: &Book, filename: &str) -> eyre::Result<Option<Bytes>> {
         let cache_dir = Self::cache_path()?;
-        let filename = url.split('/').last().unwrap();
         let cache_file = cache_dir
             .join(book.id.to_string())
             .join("images")

@@ -13,6 +13,7 @@ table {
 	border-spacing: 2px;
 	box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.75);
 	margin: 10px auto;
+	overflow: inherit;
 }
 td {
 	background: rgba(0, 0, 0, 0.1);

@@ -9,6 +9,7 @@ use regex::Regex;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::io::{Cursor, Write};
+use url::Url;
 use uuid::Uuid;
 use webp::Decoder;
 use xml::writer::XmlEvent;
@@ -207,19 +208,19 @@ pub async fn write_epub(args: &Args, book: &Book, outfile: &str) -> eyre::Result
         )?;
         chapter_html(args, chapter, &mut epub_file)?;
 
-        // Parse and download each inline image.
-        let content = chapter.content.clone().unwrap_or("".to_string());
-        let images = parse_images(&content)?;
+        // Parse and download each inline image in the content, as well as Author's Notes.
+        let mut images = parse_images(&chapter.content.clone().unwrap_or("".to_string()))?;
+        images.extend(parse_images(
+            &chapter.authors_note_start.clone().unwrap_or("".to_string()),
+        )?);
+        images.extend(parse_images(
+            &chapter.authors_note_end.clone().unwrap_or("".to_string()),
+        )?);
         if !images.is_empty() {
             tracing::info!("Downloading inline images for chapter '{}'.", chapter.title);
             for url in images.iter() {
                 epub_file.start_file(
-                    format!(
-                        "OEBPS/images/{}",
-                        url.split('/')
-                            .last()
-                            .ok_or(eyre::eyre!("No image name found"))?
-                    ),
+                    format!("OEBPS/images/{}", extract_image_name(url)?),
                     zip::write::FileOptions::default(),
                 )?;
                 download_image(book, url.to_string(), &mut epub_file).await?;
@@ -340,32 +341,29 @@ fn chapter_html(args: &Args, chapter: &Chapter, file: &mut impl Write) -> eyre::
     )?;
 
     // Write the starting author's note, if any.
-    if let Some(authors_note_start) = &chapter.authors_note_start {
+    if let Some(authors_note_start) = chapter.authors_note_start.clone() {
         write_elements(
             &mut xml,
             vec![
                 XmlEvent::start_element("div")
                     .attr("class", "authors-note-start")
                     .into(),
-                XmlEvent::characters(authors_note_start),
+                XmlEvent::characters(&rewrite_images(authors_note_start)?),
                 XmlEvent::end_element().into(),
             ],
         )?;
     }
     // Write the content.
     if let Some(mut content) = chapter.content.clone() {
-        if args.remove_font_family {
-            // Remove the font-family: *; from styles.
-            let font_family_regex = Regex::new(r#"font-family:.*?;"#).unwrap();
-            content = font_family_regex.replace_all(&content, "").to_string();
-        }
-        if args.remove_normal_font_weight {
-            // Remove font-weight: normal; and font-weight: 400; from styles.
-            let font_weight_regex = Regex::new(r#"font-weight: normal;"#).unwrap();
-            content = font_weight_regex.replace_all(&content, "").to_string();
-            let font_weight_regex = Regex::new(r#"font-weight: 400;"#).unwrap();
-            content = font_weight_regex.replace_all(&content, "").to_string();
-        }
+        // Remove the font-family: *; from styles.
+        let font_family_regex = Regex::new(r#"font-family:.*?;"#).unwrap();
+        content = font_family_regex.replace_all(&content, "").to_string();
+
+        // Remove font-weight: normal and font-weight: 400 from styles.
+        let font_weight_regex = Regex::new(r#"font-weight: normal"#).unwrap();
+        content = font_weight_regex.replace_all(&content, "").to_string();
+        let font_weight_regex = Regex::new(r#"font-weight: 400"#).unwrap();
+        content = font_weight_regex.replace_all(&content, "").to_string();
 
         write_elements(
             &mut xml,
@@ -380,14 +378,14 @@ fn chapter_html(args: &Args, chapter: &Chapter, file: &mut impl Write) -> eyre::
         )?;
     }
     // Write the ending author's note, if any.
-    if let Some(authors_note_end) = &chapter.authors_note_end {
+    if let Some(authors_note_end) = chapter.authors_note_end.clone() {
         write_elements(
             &mut xml,
             vec![
                 XmlEvent::start_element("div")
                     .attr("class", "authors-note-end")
                     .into(),
-                XmlEvent::characters(authors_note_end),
+                XmlEvent::characters(&rewrite_images(authors_note_end)?),
                 XmlEvent::end_element().into(),
             ],
         )?;
@@ -650,6 +648,18 @@ fn toc_ncx(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
     Ok(())
 }
 
+fn extract_image_name(url: &str) -> eyre::Result<String> {
+    let mut url = Url::parse(url)?;
+    url.set_query(None);
+    url.set_fragment(None);
+
+    Ok(url
+        .path_segments()
+        .ok_or(eyre::eyre!("Invalid image URL"))?
+        .last()
+        .ok_or(eyre::eyre!("Invalid image URL"))?
+        .to_string())
+}
 fn parse_images(body: &str) -> eyre::Result<Vec<String>> {
     let parsed = Html::parse_fragment(body);
     let selector = Selector::parse("img").unwrap();
@@ -668,7 +678,7 @@ fn rewrite_images(mut body: String) -> eyre::Result<String> {
 
     for element in parsed.select(&selector) {
         if let Some(src) = element.value().attr("src") {
-            let new_src = format!("../images/{}", src.split('/').last().unwrap());
+            let new_src = format!("../images/{}", extract_image_name(src)?);
             body = body.replace(src, &new_src);
         }
     }
@@ -700,33 +710,66 @@ fn is_webp(bytes: &[u8]) -> bool {
         && bytes[10] == 0x42
         && bytes[11] == 0x50
 }
+fn is_gif(bytes: &[u8]) -> bool {
+    bytes.len() > 3 && bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x38
+}
+fn is_svg(bytes: &[u8]) -> bool {
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        text.to_lowercase().trim().starts_with("<?xml")
+            || text.to_lowercase().trim().starts_with("<svg")
+    } else {
+        false
+    }
+}
+fn is_html(bytes: &[u8]) -> bool {
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        text.to_lowercase().trim().starts_with("<!doctype html>")
+            || text.to_lowercase().trim().starts_with("<html")
+    } else {
+        false
+    }
+}
 
 async fn download_image(book: &Book, url: String, file: &mut impl Write) -> eyre::Result<()> {
-    match Cache::read_inline_image(book, &url)? {
+    let filename = extract_image_name(&url)?;
+    match Cache::read_inline_image(book, &filename)? {
         Some(image) => {
             file.write_all(&image)?;
         }
         None => {
             let client = reqwest::Client::new();
-            let image = client
+            let mut image = client
                 .get(&url)
                 .header("User-Agent", USER_AGENT)
                 .send()
-                .await?
-                .error_for_status()?;
+                .await?;
+            if image.status() == 404 {
+                // Ignore not found images.
+                return Ok(());
+            } else {
+                image = image.error_for_status()?;
+            }
             let bytes = image.bytes().await?;
 
-            // Decode the image.
-            let image = if is_png(&bytes) || is_jpeg(&bytes) {
-                Reader::new(Cursor::new(&bytes))
-                    .with_guessed_format()?
-                    .decode()?
+            let image = if is_html(&bytes) {
+                // Skip HTML pages.
+                return Ok(());
+            } else if is_gif(&bytes) || is_svg(&bytes) {
+                // Directly pass through the image.
+                file.write_all(&bytes)?;
+                return Ok(());
             } else if is_webp(&bytes) {
+                // Decode the image.
                 let webp = Decoder::new(&bytes).decode().ok_or(eyre::eyre!(
                     "Failed to decode webp image. Please report this as a bug and include the following URL: {}",
                     url
                 ))?;
                 webp.to_image()
+            } else if is_jpeg(&bytes) || is_png(&bytes) {
+                // Decode the image.
+                Reader::new(Cursor::new(&bytes))
+                    .with_guessed_format()?
+                    .decode()?
             } else {
                 bail!("Unsupported inline image format. Please report this as a bug and include the following URL: {}", url);
             };
@@ -743,7 +786,7 @@ async fn download_image(book: &Book, url: String, file: &mut impl Write) -> eyre
             // Encode the image.
             let mut buffer = Vec::new();
             if is_png(&bytes) || is_webp(&bytes) {
-                // We write both PNG and WebP as PNG because WebP is not supported by some ebook readers.
+                // We write both PNG and WebP as PNG because WebP is not supported by some e-readers.
                 image.write_with_encoder(PngEncoder::new_with_quality(
                     Cursor::new(&mut buffer),
                     CompressionType::Fast,
@@ -759,7 +802,7 @@ async fn download_image(book: &Book, url: String, file: &mut impl Write) -> eyre
             };
 
             // Save the image in the cache.
-            Cache::write_inline_image(book, &url, &buffer)?;
+            Cache::write_inline_image(book, &filename, &buffer)?;
 
             // Write the image to the file.
             file.write_all(&buffer)?;

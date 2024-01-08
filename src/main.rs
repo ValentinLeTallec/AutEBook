@@ -21,16 +21,6 @@ pub struct Args {
     #[arg(long = "ignore-cache")]
     /// Ignore the cache and redownload all chapters.
     pub ignore_cache: bool,
-
-    #[arg(long = "remove-normal-font-weight")]
-    /// Some authors force their text to use "normal" font weight.
-    /// This flag removes that and uses the reader app's default.
-    pub remove_normal_font_weight: bool,
-
-    #[arg(long = "remove-font-family")]
-    /// Some authors override the font family.
-    /// This flag removes that and uses the reader app's default.
-    pub remove_font_family: bool,
 }
 
 #[tokio::main]

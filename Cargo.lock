@@ -1377,6 +1377,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "url",
  "uuid",
  "webp",
  "xml-rs",
