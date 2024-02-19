@@ -1,6 +1,5 @@
 use crate::cache::Cache;
 use crate::xml_ext::write_elements;
-use crate::Args;
 use eyre::bail;
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
@@ -167,7 +166,7 @@ pub struct Chapter {
     pub authors_note_end: Option<String>,
 }
 
-pub async fn write_epub(args: &Args, book: &Book, outfile: &str) -> eyre::Result<()> {
+pub async fn write_epub(book: &Book, outfile: &str) -> eyre::Result<()> {
     // Create a temp dir.
     let temp_folder = tempfile::tempdir()?;
 
@@ -206,7 +205,7 @@ pub async fn write_epub(args: &Args, book: &Book, outfile: &str) -> eyre::Result
             format!("OEBPS/text/{}.xhtml", chapter.id),
             zip::write::FileOptions::default(),
         )?;
-        chapter_html(args, chapter, &mut epub_file)?;
+        chapter_html(chapter, &mut epub_file)?;
 
         // Parse and download each inline image in the content, as well as Author's Notes.
         let mut images = parse_images(&chapter.content.clone().unwrap_or("".to_string()))?;
@@ -301,7 +300,7 @@ fn title_html(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
     Ok(())
 }
 
-fn chapter_html(args: &Args, chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
+fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
     let mut xml = EmitterConfig::new().perform_indent(true);
     xml.perform_escaping = false;
     let mut xml = xml.create_writer(file);
@@ -360,10 +359,21 @@ fn chapter_html(args: &Args, chapter: &Chapter, file: &mut impl Write) -> eyre::
         content = font_family_regex.replace_all(&content, "").to_string();
 
         // Remove font-weight: normal and font-weight: 400 from styles.
-        let font_weight_regex = Regex::new(r#"font-weight: normal"#).unwrap();
+        let font_weight_regex = Regex::new(r#"font-weight:\s?normal"#).unwrap();
         content = font_weight_regex.replace_all(&content, "").to_string();
-        let font_weight_regex = Regex::new(r#"font-weight: 400"#).unwrap();
+        let font_weight_regex = Regex::new(r#"font-weight:\s?400"#).unwrap();
         content = font_weight_regex.replace_all(&content, "").to_string();
+
+        // Remove overflow: auto.
+        let overflow_regex = Regex::new(r#"overflow:\s?auto"#).unwrap();
+        content = overflow_regex.replace_all(&content, "").to_string();
+
+        // Remove any "stolen from Amazon" messages.
+        // Please don't use this tool to re-publish authors' works without their permission.
+        let messages = include_str!("./assets/messages.txt");
+        for message in messages.split('\n') {
+            content = content.replace(message, "");
+        }
 
         write_elements(
             &mut xml,

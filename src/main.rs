@@ -50,7 +50,6 @@ async fn run() -> eyre::Result<()> {
     let api = RoyalRoadApi::new();
     let book = api.get_book(args.book_id, args.ignore_cache).await?;
     write_epub(
-        &args,
         &book,
         out_file.to_str().ok_or(eyre::eyre!(
             "Invalid output folder, path contains non-UTF8 characters"
