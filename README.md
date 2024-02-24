@@ -15,10 +15,16 @@ cargo install --git https://github.com/isaac-mcfadyen/rr-to-epub
 
 ## Usage
 
-After install, download a book by running the following command, replacing the ID with the book ID. (Book IDs can be found in the URL of the book, e.g. `https://www.royalroad.com/fiction/<book-id>/`)
+After install, download a book by running the following command, substituting in the book URL:
 
 ```sh
-rr-to-epub --book-id <book-id> ./file-to-output.epub
+rr-to-epub download -u <URL>
+```
+
+To update an entire folder of books (that were downloaded by rr-to-epub), run the following command:
+
+```sh
+rr-to-epub update -d <directory>
 ```
 
 Full help can be found by running `rr-to-epub --help`.

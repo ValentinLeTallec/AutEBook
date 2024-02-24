@@ -7,7 +7,9 @@ use image::io::Reader;
 use regex::Regex;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
+use std::io::Read;
 use std::io::{Cursor, Write};
+use std::path::PathBuf;
 use url::Url;
 use uuid::Uuid;
 use webp::Decoder;
@@ -31,6 +33,48 @@ pub struct Book {
     client: reqwest::Client,
 }
 impl Book {
+    pub fn id_from_file(path: PathBuf) -> eyre::Result<Option<u32>> {
+        // Open the file as a ZIP.
+        let mut reader = zip::ZipArchive::new(std::fs::File::open(path)?)?;
+
+        // Open the file at OEBPS/content.opf.
+        let mut content_opf = reader.by_name("OEBPS/content.opf")?;
+
+        // Read the file.
+        let mut contents = String::new();
+        content_opf.read_to_string(&mut contents)?;
+
+        // Parse as XML.
+        let mut parsed = xml::EventReader::new(contents.as_bytes());
+        loop {
+            let Ok(event) = parsed.next() else {
+                return Ok(None);
+            };
+            match event {
+                xml::reader::XmlEvent::StartElement { attributes, .. } => {
+                    let is_rr_tag = attributes.iter().any(|v| {
+                        v.name.local_name == "name" && v.value == "rr-to-epub:royal-road-id"
+                    });
+                    if is_rr_tag {
+                        // Find the content attribute.
+                        let Some(content) =
+                            attributes.iter().find(|v| v.name.local_name == "content")
+                        else {
+                            return Ok(None);
+                        };
+
+                        let id = content.value.parse::<u32>()?;
+                        return Ok(Some(id));
+                    }
+                }
+                xml::reader::XmlEvent::EndDocument => {
+                    // End of document without finding the ID.
+                    return Ok(None);
+                }
+                _ => {}
+            }
+        }
+    }
     pub async fn new(id: u32) -> eyre::Result<Self> {
         // Cover in script tag: window.fictionCover = "...";
         let cover_regex = Regex::new(r#"window\.fictionCover = "(.*)";"#).unwrap();
@@ -118,7 +162,13 @@ impl Book {
                 num_chapters
             );
             let url = format!("https://www.royalroad.com{}", chapter.url);
-            let request = self.client.get(url).send().await?.error_for_status()?;
+            let request = self
+                .client
+                .get(url)
+                .header("User-Agent", USER_AGENT)
+                .send()
+                .await?
+                .error_for_status()?;
             let text = request.text().await?;
 
             let parsed = Html::parse_document(&text);
@@ -166,9 +216,15 @@ pub struct Chapter {
     pub authors_note_end: Option<String>,
 }
 
-pub async fn write_epub(book: &Book, outfile: &str) -> eyre::Result<()> {
+pub async fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<()> {
     // Create a temp dir.
     let temp_folder = tempfile::tempdir()?;
+
+    // Choose the filename.
+    let outfile = match outfile {
+        Some(outfile) => outfile,
+        None => format!("{}.epub", book.title),
+    };
 
     // Open the file.
     let epub_path = temp_folder
@@ -247,7 +303,9 @@ pub async fn write_epub(book: &Book, outfile: &str) -> eyre::Result<()> {
 
     // Finish and copy to user destination.
     epub_file.finish()?;
-    std::fs::copy(epub_path, outfile)?;
+    std::fs::copy(epub_path, &outfile)?;
+
+    tracing::info!("Wrote EPUB to {:?}", outfile);
     Ok(())
 }
 
@@ -480,6 +538,11 @@ fn content_opf(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
             XmlEvent::start_element("meta")
                 .attr("name", "primary-writing-mode")
                 .attr("content", "horizontal-lr")
+                .into(),
+            XmlEvent::end_element().into(),
+            XmlEvent::start_element("meta")
+                .attr("name", "rr-to-epub:royal-road-id")
+                .attr("content", &book.id.to_string())
                 .into(),
             XmlEvent::end_element().into(),
             XmlEvent::end_element().into(),
@@ -748,16 +811,18 @@ async fn download_image(book: &Book, url: String, file: &mut impl Write) -> eyre
         }
         None => {
             let client = reqwest::Client::new();
-            let mut image = client
+            let image = client
                 .get(&url)
                 .header("User-Agent", USER_AGENT)
                 .send()
                 .await?;
-            if image.status() == 404 {
-                // Ignore not found images.
+            if !image.status().is_success() {
+                // Ignore failed images.
+                tracing::warn!(
+                    "Failed to download image from URL. This is likely NOT a bug with rr-to-epub. URL: {}",
+                    url
+                );
                 return Ok(());
-            } else {
-                image = image.error_for_status()?;
             }
             let bytes = image.bytes().await?;
 
@@ -770,10 +835,13 @@ async fn download_image(book: &Book, url: String, file: &mut impl Write) -> eyre
                 return Ok(());
             } else if is_webp(&bytes) {
                 // Decode the image.
-                let webp = Decoder::new(&bytes).decode().ok_or(eyre::eyre!(
-                    "Failed to decode webp image. Please report this as a bug and include the following URL: {}",
-                    url
-                ))?;
+                let Some(webp) = Decoder::new(&bytes).decode() else {
+                    tracing::warn!(
+                        "Failed to decode webp image. Please report this as a bug and include the following URL: {}",
+                        url
+                    );
+                    return Ok(()); // Skip the image.
+                };
                 webp.to_image()
             } else if is_jpeg(&bytes) || is_png(&bytes) {
                 // Decode the image.

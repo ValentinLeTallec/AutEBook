@@ -6,6 +6,10 @@ p {
 	margin-bottom: 1em;
 	margin: 20px 0;
 }
+p,
+div {
+	line-height: 1.5;
+}
 table {
 	background: #004b7a;
 	border-collapse: collapse;
