@@ -223,7 +223,11 @@ pub async fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<()
     // Choose the filename.
     let outfile = match outfile {
         Some(outfile) => outfile,
-        None => format!("{}.epub", book.title),
+        None => format!(
+            "{}.epub",
+            book.title
+                .replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "-")
+        ),
     };
 
     // Open the file.
@@ -303,6 +307,7 @@ pub async fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<()
 
     // Finish and copy to user destination.
     epub_file.finish()?;
+    tracing::debug!("Copying epub from {:?} to {:?}", epub_path, outfile);
     std::fs::copy(epub_path, &outfile)?;
 
     tracing::info!("Wrote EPUB to {:?}", outfile);
