@@ -17,6 +17,9 @@ use xml::writer::XmlEvent;
 use xml::EmitterConfig;
 
 const USER_AGENT: &str = "rr-to-epub <https://github.com/isaac-mcfadyen/rr-to-epub>";
+const FORBIDDEN_CHARACTERS: [char; 13] = [
+    '/', '\\', ':', '*', '?', '"', '<', '>', '|', '%', '"', '[', ']',
+];
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Book {
@@ -223,11 +226,7 @@ pub async fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<()
     // Choose the filename.
     let outfile = match outfile {
         Some(outfile) => outfile,
-        None => format!(
-            "{}.epub",
-            book.title
-                .replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "-")
-        ),
+        None => format!("{}.epub", book.title.replace(FORBIDDEN_CHARACTERS, "_")),
     };
 
     // Open the file.
@@ -736,7 +735,8 @@ fn extract_image_name(url: &str) -> eyre::Result<String> {
         .ok_or(eyre::eyre!("Invalid image URL"))?
         .last()
         .ok_or(eyre::eyre!("Invalid image URL"))?
-        .to_string())
+        .to_string()
+        .replace(FORBIDDEN_CHARACTERS, "_"))
 }
 fn parse_images(body: &str) -> eyre::Result<Vec<String>> {
     let parsed = Html::parse_fragment(body);
