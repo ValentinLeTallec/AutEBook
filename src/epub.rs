@@ -402,7 +402,8 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
     )?;
 
     // Write the starting author's note, if any.
-    if let Some(authors_note_start) = chapter.authors_note_start.clone() {
+    if let Some(mut authors_note_start) = chapter.authors_note_start.clone() {
+        authors_note_start = clean_html(&authors_note_start);
         write_elements(
             &mut xml,
             vec![
@@ -416,19 +417,7 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
     }
     // Write the content.
     if let Some(mut content) = chapter.content.clone() {
-        // Remove the font-family: *; from styles.
-        let font_family_regex = Regex::new(r#"font-family:.*?;"#).unwrap();
-        content = font_family_regex.replace_all(&content, "").to_string();
-
-        // Remove font-weight: normal and font-weight: 400 from styles.
-        let font_weight_regex = Regex::new(r#"font-weight:\s?normal"#).unwrap();
-        content = font_weight_regex.replace_all(&content, "").to_string();
-        let font_weight_regex = Regex::new(r#"font-weight:\s?400"#).unwrap();
-        content = font_weight_regex.replace_all(&content, "").to_string();
-
-        // Remove overflow: auto.
-        let overflow_regex = Regex::new(r#"overflow:\s?auto"#).unwrap();
-        content = overflow_regex.replace_all(&content, "").to_string();
+        content = clean_html(&content);
 
         // Remove any "stolen from Amazon" messages.
         // Please don't use this tool to re-publish authors' works without their permission.
@@ -450,7 +439,8 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
         )?;
     }
     // Write the ending author's note, if any.
-    if let Some(authors_note_end) = chapter.authors_note_end.clone() {
+    if let Some(mut authors_note_end) = chapter.authors_note_end.clone() {
+        authors_note_end = clean_html(&authors_note_end);
         write_elements(
             &mut xml,
             vec![
@@ -472,6 +462,42 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
         ],
     )?;
     Ok(())
+}
+
+fn clean_html(original_content: &str) -> String {
+    // Remove the font-family: *; from styles.
+    let font_family_regex = Regex::new(r#"\s*font-family:[^;"]*(?:;\s*|("))"#).unwrap();
+    let mut content = font_family_regex
+        .replace_all(original_content, "$1")
+        .to_string();
+    let font_family_regex = Regex::new(r#"font-family:[^;"]*""#).unwrap();
+    content = font_family_regex.replace_all(&content, "\"").to_string();
+
+    // Remove font-weight: normal and font-weight: 400 from styles.
+    let font_weight_regex = Regex::new(r#"font-weight:\s?normal"#).unwrap();
+    content = font_weight_regex.replace_all(&content, "").to_string();
+    let font_weight_regex = Regex::new(r#"font-weight:\s?400"#).unwrap();
+    content = font_weight_regex.replace_all(&content, "").to_string();
+
+    // Remove &nbsp;
+    let class_regex = Regex::new(r#"class="[^"]*""#).unwrap();
+    content = class_regex.replace_all(&content, "").to_string();
+
+    // Close tags
+    let img_regex = Regex::new(r#"(<img[^>]*[^/])>"#).unwrap();
+    content = img_regex.replace_all(&content, "$1/>").to_string();
+    content = content.replace("<br>", "<br/>");
+    content = content.replace("<hr>", "<hr/>");
+
+    // Remove useless whitespaces
+    content = content.replace("&nbsp;", " ");
+    let whitespace_regex = Regex::new(r#"<p[^>]*>\s*</p>"#).unwrap();
+    content = whitespace_regex.replace_all(&content, "").to_string();
+
+    // Remove overflow: auto.
+    let overflow_regex = Regex::new(r#"overflow:\s?auto"#).unwrap();
+    content = overflow_regex.replace_all(&content, "").to_string();
+    content
 }
 
 fn container_xml(_: &Book, file: &mut impl Write) -> eyre::Result<()> {
@@ -891,6 +917,80 @@ async fn download_image(book: &Book, url: String, file: &mut impl Write) -> eyre
             file.write_all(&buffer)?;
         }
     }
-
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use crate::epub::clean_html;
+
+    #[test]
+    fn clean_font_familly_1() -> Result<(), ()> {
+        // Prepare
+        let content = "<span style=\"color: rgba(0, 235, 255, 1); font-family: consolas, terminal, monaco\">txt</span>";
+
+        // Act
+        let actual = clean_html(content);
+
+        // Assert
+        let expected = String::from("<span style=\"color: rgba(0, 235, 255, 1);\">txt</span>");
+        assert_eq!(actual, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn clean_font_familly_2() -> Result<(), ()> {
+        // Prepare
+        let content = "<span style=\"font-family: consolas, terminal, monaco; color: rgba(0, 235, 255, 1)\">txt</span>";
+
+        // Act
+        let actual = clean_html(content);
+
+        // Assert
+        let expected = String::from("<span style=\"color: rgba(0, 235, 255, 1)\">txt</span>");
+        assert_eq!(actual, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn clean_nbsp() -> Result<(), ()> {
+        // Prepare
+        let content = "<p class=\"cnM5NDA4MTVmMmRlNzQ1ZjI5YmRmZDcxYjgxYTc5NGYx\" style=\"text-align: center\">&nbsp;</p>";
+
+        // Act
+        let actual = clean_html(content);
+
+        // Assert
+        let expected = String::from("");
+        assert_eq!(actual, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn close_img_tag() -> Result<(), ()> {
+        // Prepare
+        let content = "<img src=\"https://site.com/img.gif\" alt=\"image\">";
+
+        // Act
+        let actual = clean_html(content);
+
+        // Assert
+        let expected = String::from("<img src=\"https://site.com/img.gif\" alt=\"image\"/>");
+        assert_eq!(actual, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn dont_break_closed_img_tag() -> Result<(), ()> {
+        // Prepare
+        let content = "<img src=\"https://site.com/img.gif\" alt=\"image\"/>";
+
+        // Act
+        let actual = clean_html(content);
+
+        // Assert
+        let expected = String::from("<img src=\"https://site.com/img.gif\" alt=\"image\"/>");
+        assert_eq!(actual, expected);
+        Ok(())
+    }
 }
