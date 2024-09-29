@@ -319,43 +319,51 @@ fn stylesheet(file: &mut impl Write) -> eyre::Result<()> {
 }
 
 fn title_html(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
-    let mut xml = EmitterConfig::new()
-        .perform_indent(true)
-        .create_writer(file);
+    let mut xml = EmitterConfig::new().perform_indent(true);
+    xml.perform_escaping = false;
+    let mut xml = xml.create_writer(file);
 
     // Write the body
+    #[rustfmt::skip]
     write_elements(
         &mut xml,
         vec![
+            XmlEvent::characters("\n<!DOCTYPE html>\n"),
             XmlEvent::start_element("html")
                 .ns("", "http://www.w3.org/1999/xhtml")
                 .into(),
-            // Write the head.
-            XmlEvent::start_element("head").into(),
-            XmlEvent::start_element("title").into(),
-            XmlEvent::characters(&book.title),
-            XmlEvent::end_element().into(),
-            XmlEvent::start_element("link")
-                .attr("rel", "stylesheet")
-                .attr("type", "text/css")
-                .attr("href", "../styles/stylesheet.css")
-                .into(),
-            XmlEvent::end_element().into(),
-            XmlEvent::start_element("body").into(),
-            // Write the cover.
-            XmlEvent::start_element("img")
-                .attr("src", "../images/cover.jpeg")
-                .attr("alt", "Cover")
-                .attr("class", "cover")
-                .into(),
-            XmlEvent::end_element().into(),
-            XmlEvent::start_element("h1").attr("class", "title").into(),
-            XmlEvent::characters(&book.title),
-            XmlEvent::end_element().into(),
-            XmlEvent::start_element("h2").attr("class", "author").into(),
-            XmlEvent::characters(&book.author),
-            XmlEvent::end_element().into(),
-            XmlEvent::end_element().into(),
+
+                // Write the head.
+                XmlEvent::start_element("head").into(),
+                    XmlEvent::start_element("title").into(),
+                        XmlEvent::characters(&book.title),
+                    XmlEvent::end_element().into(), // title
+
+                    XmlEvent::start_element("link")
+                        .attr("rel", "stylesheet")
+                        .attr("type", "text/css")
+                        .attr("href", "../styles/stylesheet.css")
+                        .into(),
+                    XmlEvent::end_element().into(), // link
+                XmlEvent::end_element().into(), // head
+
+                XmlEvent::start_element("body").into(),
+                    // Write the cover.
+                    XmlEvent::start_element("img")
+                        .attr("src", "../images/cover.jpeg")
+                        .attr("alt", "Cover")
+                        .attr("class", "cover")
+                        .into(),
+                    XmlEvent::end_element().into(),
+
+                    XmlEvent::start_element("h1").attr("class", "title").into(),
+                        XmlEvent::characters(&book.title),
+                    XmlEvent::end_element().into(),
+
+                    XmlEvent::start_element("h2").attr("class", "author").into(),
+                        XmlEvent::characters(&book.author),
+                    XmlEvent::end_element().into(),
+                XmlEvent::end_element().into(),
             XmlEvent::end_element().into(),
         ],
     )?;
@@ -367,37 +375,42 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
     xml.perform_escaping = false;
     let mut xml = xml.create_writer(file);
 
+    #[rustfmt::skip]
     write_elements(
         &mut xml,
         vec![
+            XmlEvent::characters("\n<!DOCTYPE html>\n"),
             XmlEvent::start_element("html")
                 .ns("", "http://www.w3.org/1999/xhtml")
                 .attr("xml:lang", "en")
                 .into(),
-            // Write the head.
-            XmlEvent::start_element("head").into(),
-            XmlEvent::start_element("title").into(),
-            XmlEvent::characters(&chapter.title),
-            XmlEvent::end_element().into(),
-            XmlEvent::start_element("meta")
-                .attr("name", "generator")
-                .attr("content", "text/html; charset=UTF-8")
-                .into(),
-            XmlEvent::end_element().into(),
-            XmlEvent::start_element("link")
-                .attr("href", "../styles/stylesheet.css")
-                .attr("rel", "stylesheet")
-                .attr("type", "text/css")
-                .into(),
-            XmlEvent::end_element().into(),
-            XmlEvent::end_element().into(),
-            // Write the body.
-            XmlEvent::start_element("body").into(),
-            XmlEvent::start_element("h1")
-                .attr("class", "chapter-title")
-                .into(),
-            XmlEvent::characters(&chapter.title),
-            XmlEvent::end_element().into(),
+                // Write the head.
+                XmlEvent::start_element("head").into(),
+                    XmlEvent::start_element("title").into(),
+                        XmlEvent::characters(&chapter.title),
+                    XmlEvent::end_element().into(),
+
+                    XmlEvent::start_element("meta")
+                        .attr("name", "generator")
+                        .attr("content", "text/html; charset=UTF-8")
+                        .into(),
+                    XmlEvent::end_element().into(),
+
+                    XmlEvent::start_element("link")
+                        .attr("href", "../styles/stylesheet.css")
+                        .attr("rel", "stylesheet")
+                        .attr("type", "text/css")
+                        .into(),
+                    XmlEvent::end_element().into(),
+                XmlEvent::end_element().into(),
+
+                // Write the body.
+                XmlEvent::start_element("body").into(),
+                    XmlEvent::start_element("h1")
+                        .attr("class", "chapter-title")
+                        .into(),
+                        XmlEvent::characters(&chapter.title),
+                    XmlEvent::end_element().into(),
         ],
     )?;
 
