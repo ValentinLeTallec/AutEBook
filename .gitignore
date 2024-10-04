@@ -1,2 +1,9 @@
 /target
-*.epub
+stderr.log
+stdout.log
+tests/ressources/RavensDagger - Cinnamon Bun.epub
+ignored
+.vscode
+test_biblio_seed
+test_biblio
+zellij_layout.kdl
