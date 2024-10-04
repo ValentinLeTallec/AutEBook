@@ -1,12 +1,13 @@
 use crate::cache::Cache;
 use crate::xml_ext::write_elements;
-use eyre::bail;
+use eyre::{bail, eyre, OptionExt};
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
 use image::io::Reader;
 use regex::Regex;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::io::Read;
 use std::io::{Cursor, Write};
 use std::path::PathBuf;
@@ -249,13 +250,14 @@ pub async fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<()
     epub_file.start_file("META-INF/container.xml", zip::write::FileOptions::default())?;
     container_xml(book, &mut epub_file)?;
 
-    // Write the content.opf file.
-    epub_file.start_file("OEBPS/content.opf", zip::write::FileOptions::default())?;
-    content_opf(book, &mut epub_file)?;
-
     // Write the table of contents (toc.ncx) file.
     epub_file.start_file("OEBPS/toc.ncx", zip::write::FileOptions::default())?;
     toc_ncx(book, &mut epub_file)?;
+
+    // Store image urls
+    let mut images: HashSet<String> = HashSet::new();
+    // Add the cover.
+    images.insert(book.cover_url.clone());
 
     // Write each chapter.
     for chapter in book.chapters.iter() {
@@ -266,36 +268,55 @@ pub async fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<()
         )?;
         chapter_html(chapter, &mut epub_file)?;
 
-        // Parse and download each inline image in the content, as well as Author's Notes.
-        let mut images = parse_images(&chapter.content.clone().unwrap_or("".to_string()))?;
+        // Find each inline image in the content, as well as Author's Notes.
+        images.extend(parse_images(
+            &chapter.content.clone().unwrap_or("".to_string()),
+        )?);
         images.extend(parse_images(
             &chapter.authors_note_start.clone().unwrap_or("".to_string()),
         )?);
         images.extend(parse_images(
             &chapter.authors_note_end.clone().unwrap_or("".to_string()),
         )?);
-        if !images.is_empty() {
-            tracing::info!("Downloading inline images for chapter '{}'.", chapter.title);
-            for url in images.iter() {
-                epub_file.start_file(
-                    format!("OEBPS/images/{}", extract_image_name(url)?),
-                    zip::write::FileOptions::default(),
-                )?;
-                download_image(book, url.to_string(), &mut epub_file).await?;
-            }
-        }
     }
 
-    // Write the cover.
-    epub_file.start_file(
-        "OEBPS/images/cover.jpeg",
-        zip::write::FileOptions::default(),
-    )?;
-    download_image(book, book.cover_url.clone(), &mut epub_file).await?;
+    // Store image filenames to add them to the content_opf
+    let mut image_filenames: HashSet<String> = HashSet::new();
+    let mut disambiguation_integer: u16 = 0;
+
+    // Download the images and add them to the e-book
+    for url in images.iter() {
+        let mut filename = extract_image_name(url)?;
+
+        // In some case images can have the same name, we prefix it
+        // with an integer to disambiguate.
+        if image_filenames.contains(&filename) {
+            filename = format!("{}_{}", disambiguation_integer, filename);
+            disambiguation_integer += 1;
+        }
+
+        match download_image(book, url, &filename).await {
+            Ok(buffer) => {
+                // Write the image to the file.
+                epub_file.start_file(
+                    format!("OEBPS/images/{}", filename),
+                    zip::write::FileOptions::default(),
+                )?;
+                epub_file.write_all(&buffer)?;
+
+                image_filenames.insert(filename);
+            }
+            Err(err) => tracing::warn!("{}", err),
+        }
+    }
 
     // Write the title page.
     epub_file.start_file("OEBPS/text/title.xhtml", zip::write::FileOptions::default())?;
     title_html(book, &mut epub_file)?;
+
+    // Write the content.opf file.
+    epub_file.start_file("OEBPS/content.opf", zip::write::FileOptions::default())?;
+    content_opf(book, image_filenames, &mut epub_file)?;
 
     // Write the stylesheet.
     epub_file.start_file(
@@ -322,6 +343,7 @@ fn title_html(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
     let mut xml = EmitterConfig::new().perform_indent(true);
     xml.perform_escaping = false;
     let mut xml = xml.create_writer(file);
+    let cover_file_name = extract_image_name(&book.cover_url).unwrap_or("".into());
 
     // Write the body
     #[rustfmt::skip]
@@ -350,7 +372,7 @@ fn title_html(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
                 XmlEvent::start_element("body").into(),
                     // Write the cover.
                     XmlEvent::start_element("img")
-                        .attr("src", "../images/cover.jpeg")
+                        .attr("src", &format!("../images/{}", cover_file_name))
                         .attr("alt", "Cover")
                         .attr("class", "cover")
                         .into(),
@@ -493,7 +515,7 @@ fn clean_html(original_content: &str) -> String {
     content = font_weight_regex.replace_all(&content, "").to_string();
 
     // Remove &nbsp;
-    let class_regex = Regex::new(r#"class="[^"]*""#).unwrap();
+    let class_regex = Regex::new(r#" class="[^"]*""#).unwrap();
     content = class_regex.replace_all(&content, "").to_string();
 
     // Close tags
@@ -538,7 +560,11 @@ fn container_xml(_: &Book, file: &mut impl Write) -> eyre::Result<()> {
     Ok(())
 }
 
-fn content_opf(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
+fn content_opf(
+    book: &Book,
+    image_filenames: HashSet<String>,
+    file: &mut impl Write,
+) -> eyre::Result<()> {
     let mut xml = EmitterConfig::new()
         .perform_indent(true)
         .create_writer(file);
@@ -598,13 +624,6 @@ fn content_opf(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
                 .attr("media-type", "application/xhtml+xml")
                 .into(),
             XmlEvent::end_element().into(),
-            // Write the cover.
-            XmlEvent::start_element("item")
-                .attr("id", "cover")
-                .attr("href", "images/cover.jpeg")
-                .attr("media-type", "image/jpeg")
-                .into(),
-            XmlEvent::end_element().into(),
             // Write the stylesheet.
             XmlEvent::start_element("item")
                 .attr("id", "stylesheet")
@@ -621,6 +640,24 @@ fn content_opf(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
             XmlEvent::end_element().into(),
         ],
     )?;
+
+    for filename in image_filenames.iter() {
+        write_elements(
+            &mut xml,
+            vec![
+                // Write the cover.
+                XmlEvent::start_element("item")
+                    .attr("id", filename)
+                    .attr("href", &format!("images/{}", &filename))
+                    .attr(
+                        "media-type",
+                        &format!("image/{}", filename.split(".").last().unwrap_or("jpeg")),
+                    )
+                    .into(),
+                XmlEvent::end_element().into(),
+            ],
+        )?;
+    }
 
     // Write each chapter.
     for chapter in book.chapters.iter() {
@@ -802,135 +839,173 @@ fn rewrite_images(mut body: String) -> eyre::Result<String> {
     Ok(body)
 }
 
-fn is_png(bytes: &[u8]) -> bool {
-    bytes.len() > 8
-        && bytes[0] == 0x89
-        && bytes[1] == 0x50
-        && bytes[2] == 0x4E
-        && bytes[3] == 0x47
-        && bytes[4] == 0x0D
-        && bytes[5] == 0x0A
-        && bytes[6] == 0x1A
-        && bytes[7] == 0x0A
-}
-fn is_jpeg(bytes: &[u8]) -> bool {
-    bytes.len() > 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF
-}
-fn is_webp(bytes: &[u8]) -> bool {
-    bytes.len() > 11
-        && bytes[0] == 0x52
-        && bytes[1] == 0x49
-        && bytes[2] == 0x46
-        && bytes[3] == 0x46
-        && bytes[8] == 0x57
-        && bytes[9] == 0x45
-        && bytes[10] == 0x42
-        && bytes[11] == 0x50
-}
-fn is_gif(bytes: &[u8]) -> bool {
-    bytes.len() > 3 && bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x38
-}
-fn is_svg(bytes: &[u8]) -> bool {
-    if let Ok(text) = std::str::from_utf8(bytes) {
-        text.to_lowercase().trim().starts_with("<?xml")
-            || text.to_lowercase().trim().starts_with("<svg")
-    } else {
-        false
+async fn download_image(book: &Book, url: &str, filename: &str) -> eyre::Result<Vec<u8>> {
+    // If the image is in the cache, directly use it.
+    if let Some(image) = Cache::read_inline_image(book, filename)? {
+        return Ok(image.into());
     }
-}
-fn is_html(bytes: &[u8]) -> bool {
-    if let Ok(text) = std::str::from_utf8(bytes) {
-        text.to_lowercase().trim().starts_with("<!doctype html>")
-            || text.to_lowercase().trim().starts_with("<html")
-    } else {
-        false
-    }
-}
 
-async fn download_image(book: &Book, url: String, file: &mut impl Write) -> eyre::Result<()> {
-    let filename = extract_image_name(&url)?;
-    match Cache::read_inline_image(book, &filename)? {
-        Some(image) => {
-            file.write_all(&image)?;
+    let client = reqwest::Client::new();
+    let image = client
+        .get(url)
+        .header("User-Agent", USER_AGENT)
+        .send()
+        .await?;
+
+    if !image.status().is_success() {
+        // Ignore failed images.
+        bail!(
+            "Failed to download image from URL. This is likely NOT a bug with rr-to-epub. URL: {}",
+            url
+        );
+    }
+
+    tracing::info!("Downloaded inline image '{}'.", url);
+
+    let bytes: bytes::Bytes = image.bytes().await?;
+
+    let managed_image_format = ManagedImageFormat::new(&bytes)
+         .ok_or(eyre!("Unsupported inline image format. Please report this as a bug and include the following URL: {}", url))?;
+
+    let buffer: Vec<u8> = match managed_image_format {
+        ManagedImageFormat::Html => bail!("Skipping html URL: {}", url),
+        ManagedImageFormat::Gif | ManagedImageFormat::Svg => bytes.into(),
+        ManagedImageFormat::Png | ManagedImageFormat::Jpeg | ManagedImageFormat::Webp => {
+            managed_image_format
+                .as_resizable_image()
+                .ok_or_eyre("Image is not rezisable")?
+                .rezise(&bytes)?
         }
-        None => {
-            let client = reqwest::Client::new();
-            let image = client
-                .get(&url)
-                .header("User-Agent", USER_AGENT)
-                .send()
-                .await?;
-            if !image.status().is_success() {
-                // Ignore failed images.
-                tracing::warn!(
-                    "Failed to download image from URL. This is likely NOT a bug with rr-to-epub. URL: {}",
-                    url
-                );
-                return Ok(());
-            }
-            let bytes = image.bytes().await?;
+    };
 
-            let image = if is_html(&bytes) {
-                // Skip HTML pages.
-                return Ok(());
-            } else if is_gif(&bytes) || is_svg(&bytes) {
-                // Directly pass through the image.
-                file.write_all(&bytes)?;
-                return Ok(());
-            } else if is_webp(&bytes) {
-                // Decode the image.
-                let Some(webp) = Decoder::new(&bytes).decode() else {
-                    tracing::warn!(
-                        "Failed to decode webp image. Please report this as a bug and include the following URL: {}",
-                        url
-                    );
-                    return Ok(()); // Skip the image.
-                };
-                webp.to_image()
-            } else if is_jpeg(&bytes) || is_png(&bytes) {
-                // Decode the image.
+    // Save the image in the cache.
+    Cache::write_inline_image(book, filename, &buffer)?;
+
+    Ok(buffer)
+}
+
+enum ManagedImageFormat {
+    Png,
+    Jpeg,
+    Webp,
+    Gif,
+    Svg,
+    Html,
+}
+enum ResizableImageFormat {
+    Png,
+    Jpeg,
+    Webp,
+}
+
+impl ManagedImageFormat {
+    pub fn new(bytes: &[u8]) -> Option<ManagedImageFormat> {
+        if bytes.len() > 8
+            && bytes[0] == 0x89
+            && bytes[1] == 0x50
+            && bytes[2] == 0x4E
+            && bytes[3] == 0x47
+            && bytes[4] == 0x0D
+            && bytes[5] == 0x0A
+            && bytes[6] == 0x1A
+            && bytes[7] == 0x0A
+        {
+            return Some(Self::Png);
+        }
+
+        if bytes.len() > 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF {
+            return Some(Self::Jpeg);
+        }
+
+        if bytes.len() > 11
+            && bytes[0] == 0x52
+            && bytes[1] == 0x49
+            && bytes[2] == 0x46
+            && bytes[3] == 0x46
+            && bytes[8] == 0x57
+            && bytes[9] == 0x45
+            && bytes[10] == 0x42
+            && bytes[11] == 0x50
+        {
+            return Some(Self::Webp);
+        }
+
+        if bytes.len() > 3
+            && bytes[0] == 0x47
+            && bytes[1] == 0x49
+            && bytes[2] == 0x46
+            && bytes[3] == 0x38
+        {
+            return Some(Self::Gif);
+        }
+
+        let text = std::str::from_utf8(bytes).ok()?;
+
+        if text.to_lowercase().trim().starts_with("<?xml")
+            || text.to_lowercase().trim().starts_with("<svg")
+        {
+            return Some(Self::Svg);
+        }
+
+        if text.to_lowercase().trim().starts_with("<!doctype html>")
+            || text.to_lowercase().trim().starts_with("<html")
+        {
+            return Some(Self::Html);
+        }
+        None
+    }
+
+    pub fn as_resizable_image(&self) -> Option<ResizableImageFormat> {
+        match self {
+            ManagedImageFormat::Png => Some(ResizableImageFormat::Png),
+            ManagedImageFormat::Jpeg => Some(ResizableImageFormat::Jpeg),
+            ManagedImageFormat::Webp => Some(ResizableImageFormat::Webp),
+            _ => None,
+        }
+    }
+}
+
+impl ResizableImageFormat {
+    /// Resize the image to max width of 600px and re-encode WebP to PNG.
+    pub fn rezise(&self, bytes: &bytes::Bytes) -> eyre::Result<Vec<u8>> {
+        let image = match self {
+            ResizableImageFormat::Webp => Decoder::new(bytes)
+                .decode()
+                .ok_or(eyre!("Image is not a valid WebP"))?
+                .to_image(),
+            ResizableImageFormat::Png | ResizableImageFormat::Jpeg => {
                 Reader::new(Cursor::new(&bytes))
                     .with_guessed_format()?
                     .decode()?
-            } else {
-                bail!("Unsupported inline image format. Please report this as a bug and include the following URL: {}", url);
-            };
+            }
+        };
 
-            // Resize to max width of 600px.
-            let width = image.width();
-            let height = image.height();
-            let image = image.resize(
-                600,
-                600 * height / width,
-                image::imageops::FilterType::Lanczos3,
-            );
+        // Resize to max width of 600px.
+        let width = image.width();
+        let height = image.height();
+        let image = image.resize(
+            600,
+            600 * height / width,
+            image::imageops::FilterType::Lanczos3,
+        );
 
-            // Encode the image.
-            let mut buffer = Vec::new();
-            if is_png(&bytes) || is_webp(&bytes) {
-                // We write both PNG and WebP as PNG because WebP is not supported by some e-readers.
+        // Encode the image.
+        let mut buffer = Vec::new();
+
+        match self {
+            // We write both PNG and WebP as PNG because WebP is not supported by some e-readers.
+            ResizableImageFormat::Png | ResizableImageFormat::Webp => {
                 image.write_with_encoder(PngEncoder::new_with_quality(
                     Cursor::new(&mut buffer),
                     CompressionType::Fast,
                     FilterType::Adaptive,
-                ))?;
-            } else if is_jpeg(&bytes) {
-                image.write_with_encoder(JpegEncoder::new_with_quality(
-                    Cursor::new(&mut buffer),
-                    80,
-                ))?;
-            } else {
-                bail!("Unsupported inline image format. Please report this as a bug and include the following URL: {}", url);
-            };
-
-            // Save the image in the cache.
-            Cache::write_inline_image(book, &filename, &buffer)?;
-
-            // Write the image to the file.
-            file.write_all(&buffer)?;
-        }
+                ))?
+            }
+            ResizableImageFormat::Jpeg => image
+                .write_with_encoder(JpegEncoder::new_with_quality(Cursor::new(&mut buffer), 80))?,
+        };
+        Ok(buffer)
     }
-    Ok(())
 }
 
 #[cfg(test)]
