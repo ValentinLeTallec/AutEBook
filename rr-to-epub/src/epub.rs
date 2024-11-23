@@ -45,7 +45,14 @@ impl Book {
         let mut reader = zip::ZipArchive::new(std::fs::File::open(path)?)?;
 
         // Open the file at OEBPS/content.opf.
-        let mut content_opf = reader.by_name("OEBPS/content.opf")?;
+        let content_opf = reader.by_name("OEBPS/content.opf");
+        let mut content_opf = if let Ok(content) = content_opf {
+            content
+        // If it does not exist, check content.opf
+        } else {
+            drop(content_opf); // Needed to prevent second mutable borrow
+            reader.by_name("content.opf")?
+        };
 
         // Read the file.
         let mut contents = String::new();
@@ -269,15 +276,9 @@ pub fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<()> {
         chapter_html(chapter, &mut epub_file)?;
 
         // Find each inline image in the content, as well as Author's Notes.
-        images.extend(parse_images(
-            &chapter.content.clone().unwrap_or("".to_string()),
-        )?);
-        images.extend(parse_images(
-            &chapter.authors_note_start.clone().unwrap_or("".to_string()),
-        )?);
-        images.extend(parse_images(
-            &chapter.authors_note_end.clone().unwrap_or("".to_string()),
-        )?);
+        images.extend(parse_images(&chapter.content));
+        images.extend(parse_images(&chapter.authors_note_start));
+        images.extend(parse_images(&chapter.authors_note_end));
     }
 
     // Store image filenames to add them to the content_opf
@@ -814,18 +815,23 @@ fn extract_image_name(url: &str) -> eyre::Result<String> {
         .to_string()
         .replace(FORBIDDEN_CHARACTERS, "_"))
 }
-fn parse_images(body: &str) -> eyre::Result<Vec<String>> {
-    let parsed = Html::parse_fragment(body);
-    let selector = Selector::parse("img").unwrap();
 
+fn parse_images(body: &Option<String>) -> Vec<String> {
     let mut sources = Vec::new();
-    for element in parsed.select(&selector) {
-        if let Some(src) = element.value().attr("src") {
-            sources.push(src.to_string());
+
+    if let Some(text) = body {
+        let parsed = Html::parse_fragment(text);
+        let selector = Selector::parse("img").unwrap();
+
+        for element in parsed.select(&selector) {
+            if let Some(src) = element.value().attr("src") {
+                sources.push(src.to_string());
+            }
         }
     }
-    Ok(sources)
+    sources
 }
+
 fn rewrite_images(mut body: String) -> eyre::Result<String> {
     let parsed = Html::parse_fragment(&body);
     let selector = Selector::parse("img").unwrap();
@@ -845,8 +851,11 @@ fn download_image(book: &Book, url: &str, filename: &str) -> eyre::Result<Vec<u8
         return Ok(image.into());
     }
 
-    let client = Client::new();
-    let image = client.get(url).header("User-Agent", USER_AGENT).send()?;
+    let image = book
+        .client
+        .get(url)
+        .header("User-Agent", USER_AGENT)
+        .send()?;
 
     if !image.status().is_success() {
         // Ignore failed images.
