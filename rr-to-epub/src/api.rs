@@ -6,13 +6,13 @@ impl RoyalRoadApi {
     pub fn new() -> Self {
         Self
     }
-    pub async fn get_book(&self, id: u32, ignore_cache: bool) -> eyre::Result<Book> {
+    pub fn get_book(&self, id: u32, ignore_cache: bool) -> eyre::Result<Book> {
         // Do the initial metadata fetch of the book.
-        let mut book = Book::new(id).await?;
+        let mut book = Book::new(id)?;
 
         // Update the cover.
         tracing::info!("Updating cover.");
-        book.update_cover().await?;
+        book.update_cover()?;
 
         // Check the cache.
         let cached = Cache::read_book(id)?;
@@ -34,7 +34,7 @@ impl RoyalRoadApi {
 
                 if should_update {
                     // There is at least one out-of-date chapter, update the chapters.
-                    book.update_chapter_content().await?;
+                    book.update_chapter_content()?;
 
                     // Save back to cache.
                     Cache::write_book(&book)?;
@@ -50,7 +50,7 @@ impl RoyalRoadApi {
             }
             None => {
                 // Load book chapters.
-                book.update_chapter_content().await?;
+                book.update_chapter_content()?;
 
                 // Write book to cache.
                 Cache::write_book(&book)?;

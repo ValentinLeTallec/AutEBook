@@ -5,12 +5,15 @@ use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
 use image::io::Reader;
 use regex::Regex;
+use reqwest::blocking::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::io::Read;
 use std::io::{Cursor, Write};
 use std::path::PathBuf;
+use std::thread;
+use std::time::Duration;
 use url::Url;
 use uuid::Uuid;
 use webp::Decoder;
@@ -34,7 +37,7 @@ pub struct Book {
     pub chapters: Vec<Chapter>,
 
     #[serde(skip)]
-    client: reqwest::Client,
+    client: Client,
 }
 impl Book {
     pub fn id_from_file(path: PathBuf) -> eyre::Result<Option<u32>> {
@@ -79,20 +82,19 @@ impl Book {
             }
         }
     }
-    pub async fn new(id: u32) -> eyre::Result<Self> {
+    pub fn new(id: u32) -> eyre::Result<Self> {
         // Cover in script tag: window.fictionCover = "...";
         let cover_regex = Regex::new(r#"window\.fictionCover = "(.*)";"#).unwrap();
         // Chapters array in script tag: window.chapters = [...];
         let chapters_regex = Regex::new(r#"window\.chapters = (\[.*]);"#).unwrap();
-        let client = reqwest::Client::new();
+        let client = Client::new();
 
         let request = client
             .get(format!("https://www.royalroad.com/fiction/{}", id))
             .header("User-Agent", USER_AGENT)
-            .send()
-            .await?
+            .send()?
             .error_for_status()?;
-        let response = request.text().await?;
+        let response = request.text()?;
 
         // Parse book metadata.
         let parsed = Html::parse_document(&response);
@@ -138,19 +140,18 @@ impl Book {
             client,
         })
     }
-    pub async fn update_cover(&mut self) -> eyre::Result<()> {
+    pub fn update_cover(&mut self) -> eyre::Result<()> {
         let cover = self
             .client
             .get(&self.cover_url)
             .header("User-Agent", USER_AGENT)
-            .send()
-            .await?
+            .send()?
             .error_for_status()?;
-        let bytes = cover.bytes().await?;
+        let bytes = cover.bytes()?;
         self.cover = Some(bytes.to_vec());
         Ok(())
     }
-    pub async fn update_chapter_content(&mut self) -> eyre::Result<()> {
+    pub fn update_chapter_content(&mut self) -> eyre::Result<()> {
         let num_chapters = self.chapters.len();
         let content_selector = Selector::parse(".chapter-inner.chapter-content").unwrap();
 
@@ -170,10 +171,9 @@ impl Book {
                 .client
                 .get(url)
                 .header("User-Agent", USER_AGENT)
-                .send()
-                .await?
+                .send()?
                 .error_for_status()?;
-            let text = request.text().await?;
+            let text = request.text()?;
 
             let parsed = Html::parse_document(&text);
 
@@ -200,8 +200,8 @@ impl Book {
                 }
             }
 
-            // Sleep for 0.5 seconds to avoid rate limiting.
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            // Sleep to avoid rate limiting.
+            thread::sleep(Duration::from_millis(100));
         }
         Ok(())
     }
@@ -220,7 +220,7 @@ pub struct Chapter {
     pub authors_note_end: Option<String>,
 }
 
-pub async fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<()> {
+pub fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<()> {
     // Create a temp dir.
     let temp_folder = tempfile::tempdir()?;
 
@@ -295,7 +295,7 @@ pub async fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<()
             disambiguation_integer += 1;
         }
 
-        match download_image(book, url, &filename).await {
+        match download_image(book, url, &filename) {
             Ok(buffer) => {
                 // Write the image to the file.
                 epub_file.start_file(
@@ -839,18 +839,14 @@ fn rewrite_images(mut body: String) -> eyre::Result<String> {
     Ok(body)
 }
 
-async fn download_image(book: &Book, url: &str, filename: &str) -> eyre::Result<Vec<u8>> {
+fn download_image(book: &Book, url: &str, filename: &str) -> eyre::Result<Vec<u8>> {
     // If the image is in the cache, directly use it.
     if let Some(image) = Cache::read_inline_image(book, filename)? {
         return Ok(image.into());
     }
 
-    let client = reqwest::Client::new();
-    let image = client
-        .get(url)
-        .header("User-Agent", USER_AGENT)
-        .send()
-        .await?;
+    let client = Client::new();
+    let image = client.get(url).header("User-Agent", USER_AGENT).send()?;
 
     if !image.status().is_success() {
         // Ignore failed images.
@@ -862,7 +858,7 @@ async fn download_image(book: &Book, url: &str, filename: &str) -> eyre::Result<
 
     tracing::info!("Downloaded inline image '{}'.", url);
 
-    let bytes: bytes::Bytes = image.bytes().await?;
+    let bytes: bytes::Bytes = image.bytes()?;
 
     let managed_image_format = ManagedImageFormat::new(&bytes)
          .ok_or(eyre!("Unsupported inline image format. Please report this as a bug and include the following URL: {}", url))?;

@@ -54,26 +54,24 @@ pub struct App {
     global: GlobalArgs,
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     tracing_subscriber::fmt::init();
-    if let Err(err) = run().await {
+    if let Err(err) = run() {
         tracing::error!("{:?}", err);
     }
 }
 
-async fn run() -> eyre::Result<()> {
+fn run() -> eyre::Result<()> {
     let app = App::parse();
     let command = app.command;
     match command {
-        Command::Download(args) => download(app.global, args).await?,
-        Command::Update(args) => update(app.global, args).await?,
-    }
-
+        Command::Download(args) => download(app.global, args)?,
+        Command::Update(args) => update(app.global, args)?,
+    };
     Ok(())
 }
 
-async fn download(global_args: GlobalArgs, args: DownloadArgs) -> eyre::Result<()> {
+fn download(global_args: GlobalArgs, args: DownloadArgs) -> eyre::Result<()> {
     let id = match (args.book_id, args.book_url) {
         (Some(id), _) => id,
         (None, Some(url)) => {
@@ -99,11 +97,11 @@ async fn download(global_args: GlobalArgs, args: DownloadArgs) -> eyre::Result<(
     };
 
     let api = RoyalRoadApi::new();
-    let book = api.get_book(id, global_args.ignore_cache).await?;
-    write_epub(&book, args.output_file).await?;
+    let book = api.get_book(id, global_args.ignore_cache)?;
+    write_epub(&book, args.output_file)?;
     Ok(())
 }
-async fn update(global_args: GlobalArgs, args: UpdateArgs) -> eyre::Result<()> {
+fn update(global_args: GlobalArgs, args: UpdateArgs) -> eyre::Result<()> {
     let api = RoyalRoadApi::new();
 
     let Ok(stat) = std::fs::metadata(&args.folder_or_file) else {
@@ -128,8 +126,8 @@ async fn update(global_args: GlobalArgs, args: UpdateArgs) -> eyre::Result<()> {
         let id = Book::id_from_file(path)?;
         if let Some(id) = id {
             tracing::info!("Found book file \"{}\", updating.", file_name);
-            let book = api.get_book(id, global_args.ignore_cache).await?;
-            write_epub(&book, Some(file_name)).await?;
+            let book = api.get_book(id, global_args.ignore_cache)?;
+            write_epub(&book, Some(file_name))?;
         } else {
             tracing::error!("Book file at \"{}\" is unmanaged, aborting.", file_name);
         }
@@ -147,8 +145,8 @@ async fn update(global_args: GlobalArgs, args: UpdateArgs) -> eyre::Result<()> {
             let id = Book::id_from_file(file.path())?;
             if let Some(id) = id {
                 tracing::info!("Found book file \"{}\", updating.", file_name);
-                let book = api.get_book(id, global_args.ignore_cache).await?;
-                write_epub(&book, Some(file_name)).await?;
+                let book = api.get_book(id, global_args.ignore_cache)?;
+                write_epub(&book, Some(file_name))?;
             } else {
                 tracing::warn!("Found unmanaged book file \"{}\", skipping.", file_name,);
             }
