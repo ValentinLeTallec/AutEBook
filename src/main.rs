@@ -54,7 +54,7 @@ enum Commands {
         /// List of directories containing books to update
         paths: Vec<PathBuf>,
 
-        /// Stash books which contains more chapters than source in the folder defined in 'stash_dir'
+        /// Stash books which contains more chapters than source in the folder defined in `stash_dir`
         /// and recreate them from source
         #[clap(short, long)]
         stash: bool,
