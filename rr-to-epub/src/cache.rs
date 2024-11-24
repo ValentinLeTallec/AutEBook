@@ -17,10 +17,8 @@ impl Cache {
         std::fs::create_dir_all(&cache_dir)?;
 
         // Write the book without the cover.
-        let mut cloned_book = book.clone();
-        cloned_book.cover = None;
         let cache_file = cache_dir.join("book.json");
-        let contents = serde_json::to_string(&cloned_book)?;
+        let contents = serde_json::to_string(&book)?;
         std::fs::write(cache_file, contents)?;
         Ok(())
     }

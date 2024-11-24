@@ -33,7 +33,6 @@ pub struct Book {
     pub description: String,
     pub date_published: String,
     pub cover_url: String,
-    pub cover: Option<Vec<u8>>,
     pub chapters: Vec<Chapter>,
 
     #[serde(skip)]
@@ -138,7 +137,6 @@ impl Book {
         Ok(Self {
             id,
             cover_url: cover,
-            cover: None,
             title,
             author,
             description,
@@ -147,17 +145,7 @@ impl Book {
             client,
         })
     }
-    pub fn update_cover(&mut self) -> eyre::Result<()> {
-        let cover = self
-            .client
-            .get(&self.cover_url)
-            .header("User-Agent", USER_AGENT)
-            .send()?
-            .error_for_status()?;
-        let bytes = cover.bytes()?;
-        self.cover = Some(bytes.to_vec());
-        Ok(())
-    }
+
     pub fn update_chapter_content(&mut self) -> eyre::Result<()> {
         let num_chapters = self.chapters.len();
         let content_selector = Selector::parse(".chapter-inner.chapter-content").unwrap();
@@ -192,14 +180,14 @@ impl Book {
                 .inner_html();
             chapter.content = Some(content);
 
-            // Parse starting AN.
+            // Parse starting author note.
             if let Some(authors_note) = parsed.select(&authors_note_start_selector).next() {
                 let authors_note = authors_note.inner_html();
                 if !authors_note.is_empty() {
                     chapter.authors_note_start = Some(authors_note);
                 }
             }
-            // Parse ending AN.
+            // Parse ending author note.
             if let Some(authors_note) = parsed.select(&authors_note_end_selector).next() {
                 let authors_note = authors_note.inner_html();
                 if !authors_note.is_empty() {
@@ -803,6 +791,7 @@ fn toc_ncx(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
 }
 
 fn extract_image_name(url: &str) -> eyre::Result<String> {
+    tracing::info!("URL -> {}", url);
     let mut url = Url::parse(url)?;
     url.set_query(None);
     url.set_fragment(None);

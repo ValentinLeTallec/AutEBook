@@ -10,10 +10,6 @@ impl RoyalRoadApi {
         // Do the initial metadata fetch of the book.
         let mut book = Book::new(id)?;
 
-        // Update the cover.
-        tracing::info!("Updating cover.");
-        book.update_cover()?;
-
         // Check the cache.
         let cached = Cache::read_book(id)?;
         match cached {
