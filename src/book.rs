@@ -10,14 +10,14 @@ use std::fmt::{Debug, Formatter};
 use std::path::Path;
 
 pub struct Book {
-    pub name: String,
+    pub title: String,
     pub path: Box<Path>,
     url: String,
     updater: Option<Box<dyn WebNovel>>,
 }
 
 impl Book {
-    fn get_book_name(path: &Path) -> Option<String> {
+    fn get_book_title(path: &Path) -> Option<String> {
         EpubDoc::new(path).ok()?.mdata("title")
     }
     fn get_book_url(path: &Path) -> Option<String> {
@@ -31,9 +31,9 @@ impl Book {
     pub fn new(path: &Path) -> Self {
         let url = Self::get_book_url(path).unwrap_or_default();
         let source = source::get(&url);
-        let name = Self::get_book_name(path).unwrap_or_else(|| String::from("Unknown Title"));
+        let title = Self::get_book_title(path).unwrap_or_else(|| String::from("Unknown Title"));
         Self {
-            name,
+            title,
             url,
             path: path.to_path_buf().into_boxed_path(),
             updater: source.get_updater(),

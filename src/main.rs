@@ -141,7 +141,7 @@ fn create_books(dir: &Path, urls: &[String]) {
         bar.inc(1);
 
         match creation_res {
-            Ok(book) => bar.println(format!("{:.50}\n", book.name)),
+            Ok(book) => bar.println(format!("{:.50}\n", book.title)),
             Err(e) => eprintln!("{e}"),
         }
     });
@@ -152,16 +152,16 @@ fn update_books(book_files: &[FileToUpdate], stash: bool) {
 
     book_files.par_iter().for_each(|file_to_update| {
         let book = Book::new(file_to_update.file_path.path());
-        bar.set_prefix(book.name.clone());
+        bar.set_prefix(book.title.clone());
 
         match book.update() {
-            UpdateResult::Updated(n) => bar.println(summary!(n, book.name, green)),
-            UpdateResult::Skipped => bar.println(summary!("Skip", book.name, blue)),
+            UpdateResult::Updated(n) => bar.println(summary!(n, book.title, green)),
+            UpdateResult::Skipped => bar.println(summary!("Skip", book.title, blue)),
             UpdateResult::MoreChapterThanSource(n) => {
-                bar.println(summary!(-i32::from(n), book.name, red));
+                bar.println(summary!(-i32::from(n), book.title, red));
                 if stash {
                     match book.stash_and_recreate(&file_to_update.stash_path) {
-                        Ok(book) => bar.println(summary!("New", book.name, light_green)),
+                        Ok(book) => bar.println(summary!("New", book.title, light_green)),
                         Err(e) => eprintln!("{e}"),
                     }
                 }

@@ -22,7 +22,7 @@ clap_complete = "4.3.2"
 color-eyre = "0.6.2"
 colorful = "0.2.2"
 epub = "2.1.1"
-indicatif ={ version = "0.17.5", features = ["rayon"]}
+indicatif = { version = "0.17.5", features = ["rayon"] }
 lazy-regex = "3.0.0"
 rayon = "1.7.0"
 rss = "2.0.4"
