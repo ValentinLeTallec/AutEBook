@@ -1,6 +1,5 @@
-use crate::cache::Cache;
-use crate::xml_ext::write_elements;
-use eyre::{bail, eyre, OptionExt};
+use crate::updater::native::{cache::Cache, xml_ext::write_elements};
+use color_eyre::eyre::{self, bail, eyre, OptionExt};
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
 use image::io::Reader;
@@ -110,27 +109,27 @@ impl Book {
         let title = parsed
             .select(&title_selector)
             .next()
-            .ok_or(eyre::eyre!("No title found"))?
+            .ok_or(eyre!("No title found"))?
             .inner_html();
         let author = parsed
             .select(&author_selector)
             .next()
-            .ok_or(eyre::eyre!("No author found"))?
+            .ok_or(eyre!("No author found"))?
             .inner_html();
         let description = parsed
             .select(&description_selector)
             .next()
-            .ok_or(eyre::eyre!("No description found"))?
+            .ok_or(eyre!("No description found"))?
             .inner_html();
 
         // Parse chapter metadata.
         let cover = cover_regex
             .captures(&response)
-            .ok_or(eyre::eyre!("No cover found"))?[1]
+            .ok_or(eyre!("No cover found"))?[1]
             .to_string();
         let chapters = chapters_regex
             .captures(&response)
-            .ok_or(eyre::eyre!("No chapters found"))?[1]
+            .ok_or(eyre!("No chapters found"))?[1]
             .to_string();
         let chapters: Vec<Chapter> = serde_json::from_str(&chapters)?;
 
@@ -176,7 +175,7 @@ impl Book {
             let content = parsed
                 .select(&content_selector)
                 .next()
-                .ok_or(eyre::eyre!("No content found"))?
+                .ok_or(eyre!("No content found"))?
                 .inner_html();
             chapter.content = Some(content);
 
@@ -215,7 +214,7 @@ pub struct Chapter {
     pub authors_note_end: Option<String>,
 }
 
-pub fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<()> {
+pub fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
     // Create a temp dir.
     let temp_folder = tempfile::tempdir()?;
 
@@ -320,7 +319,7 @@ pub fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<()> {
     std::fs::copy(epub_path, &outfile)?;
 
     tracing::info!("Wrote EPUB to {:?}", outfile);
-    Ok(())
+    Ok(outfile)
 }
 
 fn stylesheet(file: &mut impl Write) -> eyre::Result<()> {
@@ -798,9 +797,9 @@ fn extract_image_name(url: &str) -> eyre::Result<String> {
 
     Ok(url
         .path_segments()
-        .ok_or(eyre::eyre!("Invalid image URL"))?
+        .ok_or(eyre!("Invalid image URL"))?
         .last()
-        .ok_or(eyre::eyre!("Invalid image URL"))?
+        .ok_or(eyre!("Invalid image URL"))?
         .to_string()
         .replace(FORBIDDEN_CHARACTERS, "_"))
 }
@@ -1004,7 +1003,7 @@ impl ResizableImageFormat {
 
 #[cfg(test)]
 mod test {
-    use crate::epub::clean_html;
+    use crate::updater::native::epub::clean_html;
 
     #[test]
     fn clean_font_familly_1() -> Result<(), ()> {

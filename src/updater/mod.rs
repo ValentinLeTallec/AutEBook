@@ -1,7 +1,10 @@
 mod fanficfare;
+mod native;
+
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 pub use fanficfare::FanFicFare;
+pub use native::Native;
 use std::{ffi::OsStr, fs, path::Path};
 use thiserror::Error;
 

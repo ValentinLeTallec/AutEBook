@@ -1,4 +1,5 @@
-use crate::{cache::Cache, epub::Book};
+use crate::updater::native::{cache::Cache, epub::Book};
+use color_eyre::eyre;
 
 pub struct RoyalRoadApi;
 

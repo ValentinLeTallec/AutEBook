@@ -1,13 +1,14 @@
+use color_eyre::eyre;
 use std::io::Write;
-use xml::EventWriter;
 use xml::writer::XmlEvent;
+use xml::EventWriter;
 
 pub fn write_elements(
-	writer: &mut EventWriter<&mut (impl Write + Sized)>,
-	elements: Vec<XmlEvent>,
+    writer: &mut EventWriter<&mut (impl Write + Sized)>,
+    elements: Vec<XmlEvent>,
 ) -> eyre::Result<()> {
-	for element in elements {
-		writer.write(element)?;
-	}
-	Ok(())
+    for element in elements {
+        writer.write(element)?;
+    }
+    Ok(())
 }

@@ -1,13 +1,14 @@
 use std::path::PathBuf;
 
 use bytes::Bytes;
+use color_eyre::eyre::{self, eyre};
 
-use crate::epub::Book;
+use crate::updater::native::epub::Book;
 
 pub struct Cache;
 impl Cache {
     fn cache_path() -> eyre::Result<PathBuf> {
-        let home_dir = dirs::home_dir().ok_or(eyre::eyre!("No home directory"))?;
+        let home_dir = dirs::home_dir().ok_or(eyre!("No home directory"))?;
         let cache_dir = home_dir.join(".cache/rr-to-epub");
         std::fs::create_dir_all(&cache_dir)?;
         Ok(cache_dir)

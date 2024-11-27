@@ -1,6 +1,7 @@
 target/
 ignored/
 .vscode/
+result
 
 **.epub
 **.kdl

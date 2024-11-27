@@ -1,156 +1,65 @@
-use crate::api::RoyalRoadApi;
-use crate::epub::write_epub;
-use clap::Parser;
-use epub::Book;
+use std::ffi::OsStr;
+use std::path::Path;
+
+use crate::updater::native::api::RoyalRoadApi;
+use crate::updater::native::epub::write_epub;
+use ::epub::doc::EpubDoc;
+use color_eyre::eyre::Result;
+use color_eyre::Section;
 use url::Url;
+
+use super::{UpdateResult, WebNovel};
 
 mod api;
 mod cache;
 mod epub;
 mod xml_ext;
 
-#[derive(Debug, Parser)]
-pub struct DownloadArgs {
-    /// The file path to write the EPUB to. Defaults to <book-title>.epub.
-    /// Must end in .epub for parsing to work correctly in most applications.
-    pub output_file: Option<String>,
+pub struct Native;
 
-    #[arg(long = "book-id", short = 'b')]
-    /// The ID of the book to download.  One of --book-id or --book-url is required.
-    pub book_id: Option<u32>,
+impl Native {
+    fn do_update(path: &Path) -> Option<UpdateResult> {
+        let url = EpubDoc::new(path).ok()?.mdata("source")?;
+        let url = Url::parse(&url).ok()?;
+        let id = url
+            .path_segments()
+            .and_then(|mut s| s.nth(1))
+            .unwrap()
+            .parse()
+            .ok()?;
+        let api = RoyalRoadApi::new();
 
-    #[arg(long = "book-url", short = 'u')]
-    /// The URL of the book to download. One of --book-id or --book-url is required.
-    pub book_url: Option<String>,
-}
-
-#[derive(Debug, Parser)]
-pub struct UpdateArgs {
-    /// The folder of books to update, or the path to a single book file.
-    pub folder_or_file: String,
-}
-
-#[derive(Debug, Parser)]
-pub struct GlobalArgs {
-    #[arg(long = "ignore-cache", global = true)]
-    /// Ignore the cache and redownload all chapters even if the book wasn't modified.
-    pub ignore_cache: bool,
-}
-
-#[derive(Debug, Parser)]
-pub enum Command {
-    #[clap(name = "download", about = "Download a book from Royal Road.")]
-    Download(DownloadArgs),
-    #[clap(name = "update", about = "Update all books in a folder.")]
-    Update(UpdateArgs),
-}
-
-#[derive(Debug, Parser)]
-pub struct App {
-    #[clap(subcommand)]
-    command: Command,
-
-    #[clap(flatten)]
-    global: GlobalArgs,
-}
-
-fn main() {
-    tracing_subscriber::fmt::init();
-    if let Err(err) = run() {
-        tracing::error!("{:?}", err);
+        let book = api.get_book(id, false).ok()?;
+        write_epub(&book, path.to_str().map(|f| String::from(f))).ok()?;
+        Some(UpdateResult::Updated(0))
     }
 }
 
-fn run() -> eyre::Result<()> {
-    let app = App::parse();
-    let command = app.command;
-    match command {
-        Command::Download(args) => download(app.global, args)?,
-        Command::Update(args) => update(app.global, args)?,
-    };
-    Ok(())
-}
-
-fn download(global_args: GlobalArgs, args: DownloadArgs) -> eyre::Result<()> {
-    let id = match (args.book_id, args.book_url) {
-        (Some(id), _) => id,
-        (None, Some(url)) => {
-            let Ok(url) = Url::parse(&url) else {
-                tracing::error!("Invalid book URL: {}", url);
-                std::process::exit(1);
-            };
-            let Ok(id) = url
-                .path_segments()
-                .and_then(|mut s| s.nth(1))
-                .unwrap()
-                .parse()
-            else {
-                tracing::error!("Invalid book URL: {}", url);
-                std::process::exit(1);
-            };
-            id
-        }
-        _ => {
-            tracing::error!("One of --book-id or --book-url is required.");
-            std::process::exit(1);
-        }
-    };
-
-    let api = RoyalRoadApi::new();
-    let book = api.get_book(id, global_args.ignore_cache)?;
-    write_epub(&book, args.output_file)?;
-    Ok(())
-}
-fn update(global_args: GlobalArgs, args: UpdateArgs) -> eyre::Result<()> {
-    let api = RoyalRoadApi::new();
-
-    let Ok(stat) = std::fs::metadata(&args.folder_or_file) else {
-        tracing::error!(
-            "Folder or file \"{}\" does not exist, aborting.",
-            args.folder_or_file
-        );
-        return Ok(());
-    };
-    if stat.is_file() {
-        let file_name = args.folder_or_file;
-        if !file_name.ends_with(".epub") {
-            tracing::error!(
-                "File \"{}\" is not an EPUB file or does not have the .epub extension, aborting.",
-                file_name
-            );
-            return Ok(());
-        }
-
-        let path = std::path::Path::new(&file_name);
-        let path = path.canonicalize()?;
-        let id = Book::id_from_file(path)?;
-        if let Some(id) = id {
-            tracing::info!("Found book file \"{}\", updating.", file_name);
-            let book = api.get_book(id, global_args.ignore_cache)?;
-            write_epub(&book, Some(file_name))?;
-        } else {
-            tracing::error!("Book file at \"{}\" is unmanaged, aborting.", file_name);
-        }
-    } else {
-        let list = std::fs::read_dir(&args.folder_or_file)?;
-        for file in list {
-            let file = file?;
-            let file_name = file
-                .file_name()
-                .into_string()
-                .map_err(|_| eyre::eyre!("Invalid file name: {:?}", file.file_name()))?;
-            if !file_name.ends_with(".epub") {
-                continue;
-            }
-            let id = Book::id_from_file(file.path())?;
-            if let Some(id) = id {
-                tracing::info!("Found book file \"{}\", updating.", file_name);
-                let book = api.get_book(id, global_args.ignore_cache)?;
-                write_epub(&book, Some(file_name))?;
-            } else {
-                tracing::warn!("Found unmanaged book file \"{}\", skipping.", file_name,);
-            }
-        }
+impl WebNovel for Native {
+    fn new() -> Self {
+        Self {}
     }
-    Ok(())
+    fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<crate::Book> {
+        let url = Url::parse(&url)?;
+        let id = url
+            .path_segments()
+            .and_then(|mut s| s.nth(1))
+            .unwrap()
+            .parse()
+            .with_note(|| format!("Invalid book URL: {}", url))?;
+
+        let api = RoyalRoadApi::new();
+        let book = api.get_book(id, false)?;
+        let outfile = write_epub(
+            &book,
+            filename.and_then(|f| f.to_str()).map(|f| String::from(f)),
+        )?;
+
+        let file_path = dir.join(outfile);
+        Ok(crate::Book::new(&file_path))
+    }
+
+    fn update(&self, path: &Path) -> UpdateResult {
+        Self::do_update(path).unwrap_or(UpdateResult::Unsupported)
+    }
 }

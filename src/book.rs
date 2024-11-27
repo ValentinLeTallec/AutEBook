@@ -1,7 +1,5 @@
 use crate::source;
-use crate::updater::Unsupported;
-use crate::updater::UpdateResult;
-use crate::updater::WebNovel;
+use crate::updater::{Unsupported, UpdateResult, WebNovel};
 
 use epub::doc::EpubDoc;
 // use rss::Channel;
