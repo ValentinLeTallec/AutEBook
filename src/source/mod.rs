@@ -10,9 +10,6 @@ pub trait Source {
     fn get_updater(&self) -> Option<Box<dyn WebNovel>> {
         None
     }
-    fn get_syndication_url(&self) -> Option<String> {
-        None
-    }
 }
 
 pub struct Unsupported;
