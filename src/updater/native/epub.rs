@@ -27,6 +27,7 @@ const FORBIDDEN_CHARACTERS: [char; 13] = [
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Book {
     pub id: u32,
+    pub url: String,
     pub title: String,
     pub author: String,
     pub description: String,
@@ -94,8 +95,9 @@ impl Book {
         let chapters_regex = Regex::new(r#"window\.chapters = (\[.*]);"#).unwrap();
         let client = Client::new();
 
+        let url = format!("https://www.royalroad.com/fiction/{}", id);
         let request = client
-            .get(format!("https://www.royalroad.com/fiction/{}", id))
+            .get(&url)
             .header("User-Agent", USER_AGENT)
             .send()?
             .error_for_status()?;
@@ -135,6 +137,7 @@ impl Book {
 
         Ok(Self {
             id,
+            url,
             cover_url: cover,
             title,
             author,
@@ -572,6 +575,9 @@ fn content_opf(
             XmlEvent::end_element().into(),
             XmlEvent::start_element("dc:creator").into(),
             XmlEvent::characters(&book.author),
+            XmlEvent::end_element().into(),
+            XmlEvent::start_element("dc:source").into(),
+            XmlEvent::characters(&book.url),
             XmlEvent::end_element().into(),
             XmlEvent::start_element("dc:description").into(),
             XmlEvent::characters(&book.description),
