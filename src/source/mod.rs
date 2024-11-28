@@ -1,6 +1,10 @@
+#[cfg(feature = "fanficfare")]
+mod fanficfare;
 mod royalroad;
 use crate::updater::WebNovel;
 
+#[cfg(feature = "fanficfare")]
+use self::fanficfare::FanFicFareCompatible;
 use self::royalroad::RoyalRoad;
 
 pub trait Source {
@@ -21,6 +25,10 @@ impl Source for Unsupported {
 
 pub fn get(url: &str) -> Box<dyn Source> {
     if let Some(fiction) = RoyalRoad::new(url) {
+        return Box::new(fiction);
+    }
+    #[cfg(feature = "fanficfare")]
+    if let Some(fiction) = FanFicFareCompatible::new(url) {
         return Box::new(fiction);
     }
     Box::new(Unsupported {})
