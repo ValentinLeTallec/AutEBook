@@ -1,5 +1,5 @@
 use crate::updater::native::{cache::Cache, xml_ext::write_elements};
-use color_eyre::eyre::{self, bail, eyre, OptionExt};
+use color_eyre::eyre::{self, bail, eyre};
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
 use image::io::Reader;
@@ -872,7 +872,7 @@ fn download_image(book: &Book, url: &str, filename: &str) -> eyre::Result<Vec<u8
         ManagedImageFormat::Png | ManagedImageFormat::Jpeg | ManagedImageFormat::Webp => {
             managed_image_format
                 .as_resizable_image()
-                .ok_or_eyre("Image is not rezisable")?
+                .ok_or_else(|| eyre!("Image is not rezisable"))?
                 .rezise(&bytes)?
         }
     };
