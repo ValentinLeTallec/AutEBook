@@ -13,6 +13,7 @@ use super::{UpdateResult, WebNovel};
 mod api;
 mod cache;
 mod epub;
+mod image;
 mod xml_ext;
 
 pub struct Native;
