@@ -170,7 +170,7 @@ pub struct Chapter {
     pub authors_note_end: Option<String>,
 }
 
-pub fn write_epub(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
+pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
     // Create a temp dir.
     let temp_folder = tempfile::tempdir()?;
 

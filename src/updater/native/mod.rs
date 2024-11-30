@@ -1,7 +1,6 @@
 use std::ffi::OsStr;
 use std::path::Path;
 
-use crate::updater::native::epub::write_epub;
 use ::epub::doc::EpubDoc;
 use cache::Cache;
 use color_eyre::eyre::{self, eyre, Result};
@@ -26,7 +25,7 @@ impl WebNovel for Native {
         let id = get_id_from_url(&url)?;
 
         let book = get_book(id, false)?;
-        let outfile = write_epub(&book, filename.and_then(|f| f.to_str()).map(String::from))?;
+        let outfile = epub::write(&book, filename.and_then(|f| f.to_str()).map(String::from))?;
 
         let file_path = dir.join(outfile);
         Ok(crate::Book::new(&file_path))
@@ -91,7 +90,7 @@ fn do_update(path: &Path) -> Option<UpdateResult> {
     let id = get_id_from_url(&url).ok()?;
 
     let book = get_book(id, false).ok()?;
-    write_epub(&book, path.to_str().map(String::from)).ok()?;
+    epub::write(&book, path.to_str().map(String::from)).ok()?;
     Some(UpdateResult::Updated(0))
 }
 
