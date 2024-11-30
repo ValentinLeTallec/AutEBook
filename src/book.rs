@@ -53,15 +53,6 @@ impl Book {
             s.stash_and_recreate(&self.path, stash_dir, &self.url)
         })
     }
-
-    // async fn example_feed() -> Result<Channel, Box<dyn Error>> {
-    //     let content = reqwest::get("http://example.com/feed.xml")
-    //         .await?
-    //         .bytes()
-    //         .await?;
-    //     let channel = Channel::read_from(&content[..])?;
-    //     Ok(channel)
-    // }
 }
 
 impl Debug for Book {

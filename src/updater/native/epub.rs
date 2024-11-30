@@ -8,9 +8,7 @@ use reqwest::blocking::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::io::Read;
 use std::io::Write;
-use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 use uuid::Uuid;
@@ -37,55 +35,6 @@ pub struct Book {
     client: Client,
 }
 impl Book {
-    pub fn id_from_file(path: PathBuf) -> eyre::Result<Option<u32>> {
-        // Open the file as a ZIP.
-        let mut reader = zip::ZipArchive::new(std::fs::File::open(path)?)?;
-
-        // Open the file at OEBPS/content.opf.
-        let content_opf = reader.by_name("OEBPS/content.opf");
-        let mut content_opf = if let Ok(content) = content_opf {
-            content
-        // If it does not exist, check content.opf
-        } else {
-            drop(content_opf); // Needed to prevent second mutable borrow
-            reader.by_name("content.opf")?
-        };
-
-        // Read the file.
-        let mut contents = String::new();
-        content_opf.read_to_string(&mut contents)?;
-
-        // Parse as XML.
-        let mut parsed = xml::EventReader::new(contents.as_bytes());
-        loop {
-            let Ok(event) = parsed.next() else {
-                return Ok(None);
-            };
-            match event {
-                xml::reader::XmlEvent::StartElement { attributes, .. } => {
-                    let is_rr_tag = attributes.iter().any(|v| {
-                        v.name.local_name == "name" && v.value == "rr-to-epub:royal-road-id"
-                    });
-                    if is_rr_tag {
-                        // Find the content attribute.
-                        let Some(content) =
-                            attributes.iter().find(|v| v.name.local_name == "content")
-                        else {
-                            return Ok(None);
-                        };
-
-                        let id = content.value.parse::<u32>()?;
-                        return Ok(Some(id));
-                    }
-                }
-                xml::reader::XmlEvent::EndDocument => {
-                    // End of document without finding the ID.
-                    return Ok(None);
-                }
-                _ => {}
-            }
-        }
-    }
     pub fn new(id: u32) -> eyre::Result<Self> {
         // Cover in script tag: window.fictionCover = "...";
         let cover_regex = Regex::new(r#"window\.fictionCover = "(.*)";"#).unwrap();
