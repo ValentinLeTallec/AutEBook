@@ -151,16 +151,17 @@ fn update_books(book_files: &[FileToUpdate], stash: bool) {
     let bar = get_progress_bar(book_files.len() as u64);
 
     book_files.par_iter().for_each(|file_to_update| {
-        let book = Book::new(file_to_update.file_path.path());
+        let path = file_to_update.file_path.path();
+        let book = Book::new(path);
         bar.set_prefix(book.title.clone());
 
-        match book.update() {
+        match book.update(&path) {
             UpdateResult::Updated(n) => bar.println(summary!(n, book.title, green)),
             UpdateResult::Skipped => bar.println(summary!("Skip", book.title, blue)),
             UpdateResult::MoreChapterThanSource(n) => {
                 bar.println(summary!(-i32::from(n), book.title, red));
                 if stash {
-                    match book.stash_and_recreate(&file_to_update.stash_path) {
+                    match book.stash_and_recreate(&path, &file_to_update.stash_path) {
                         Ok(book) => bar.println(summary!("New", book.title, light_green)),
                         Err(e) => eprintln!("{e}"),
                     }

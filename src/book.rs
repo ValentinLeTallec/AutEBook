@@ -9,7 +9,6 @@ use std::path::Path;
 
 pub struct Book {
     pub title: String,
-    pub path: Box<Path>,
     url: String,
     updater: Option<Box<dyn WebNovel>>,
 }
@@ -33,24 +32,23 @@ impl Book {
         Self {
             title,
             url,
-            path: path.to_path_buf().into_boxed_path(),
             updater: source.get_updater(),
         }
     }
 
-    pub fn update(&self) -> UpdateResult {
+    pub fn update(&self, file_path: &Path) -> UpdateResult {
         self.updater
             .as_ref()
-            .map_or(UpdateResult::Unsupported, |s| s.update(&self.path))
+            .map_or(UpdateResult::Unsupported, |s| s.update(file_path))
     }
 
     pub fn create(dir: &Path, url: &str) -> Result<Self> {
         Self::get_source(url).map_or(Err(Unsupported.into()), |s| s.create(dir, None, url))
     }
 
-    pub fn stash_and_recreate(&self, stash_dir: &Path) -> Result<Self> {
+    pub fn stash_and_recreate(&self, file_path: &Path, stash_dir: &Path) -> Result<Self> {
         self.updater.as_ref().map_or(Err(Unsupported.into()), |s| {
-            s.stash_and_recreate(&self.path, stash_dir, &self.url)
+            s.stash_and_recreate(file_path, stash_dir, &self.url)
         })
     }
 }
@@ -59,8 +57,8 @@ impl Debug for Book {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         write!(
             f,
-            "Book : {{ path: {}, source_is_recognized: {}}}",
-            self.path.display(),
+            "Book : {{ title: {}, source_is_recognized: {}}}",
+            self.title,
             self.updater.is_some()
         )
     }
