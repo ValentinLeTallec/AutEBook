@@ -36,7 +36,7 @@ impl WebNovel for Native {
     }
 }
 
-pub fn get_book(id: u32, ignore_cache: bool) -> eyre::Result<Book> {
+fn get_book(id: u32, ignore_cache: bool) -> eyre::Result<Book> {
     // Do the initial metadata fetch of the book.
     let mut book = Book::new(id)?;
 
