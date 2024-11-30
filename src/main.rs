@@ -155,13 +155,13 @@ fn update_books(book_files: &[FileToUpdate], stash: bool) {
         let book = Book::new(path);
         bar.set_prefix(book.title.clone());
 
-        match book.update(&path) {
+        match book.update(path) {
             UpdateResult::Updated(n) => bar.println(summary!(n, book.title, green)),
             UpdateResult::Skipped => bar.println(summary!("Skip", book.title, blue)),
             UpdateResult::MoreChapterThanSource(n) => {
                 bar.println(summary!(-i32::from(n), book.title, red));
                 if stash {
-                    match book.stash_and_recreate(&path, &file_to_update.stash_path) {
+                    match book.stash_and_recreate(path, &file_to_update.stash_path) {
                         Ok(book) => bar.println(summary!("New", book.title, light_green)),
                         Err(e) => eprintln!("{e}"),
                     }
