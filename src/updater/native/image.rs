@@ -16,8 +16,7 @@ pub fn extract_file_name(url: &str) -> eyre::Result<String> {
 
     Ok(url
         .path_segments()
-        .ok_or_else(|| eyre!("Invalid image URL"))?
-        .last()
+        .and_then(std::iter::Iterator::last)
         .ok_or_else(|| eyre!("Invalid image URL"))?
         .to_string()
         .replace(FORBIDDEN_CHARACTERS, "_"))
