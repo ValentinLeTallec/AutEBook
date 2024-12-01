@@ -24,7 +24,7 @@ impl WebNovel for Native {
         let url = Url::parse(url)?;
         let id = get_id_from_url(&url)?;
 
-        let book = get_book(id, false)?;
+        let (book, _) = get_book(id, false)?;
         let outfile = epub::write(&book, filename.and_then(|f| f.to_str()).map(String::from))?;
 
         let file_path = dir.join(outfile);
@@ -36,7 +36,7 @@ impl WebNovel for Native {
     }
 }
 
-fn get_book(id: u32, ignore_cache: bool) -> eyre::Result<Book> {
+fn get_book(id: u32, ignore_cache: bool) -> eyre::Result<(Book, UpdateResult)> {
     // Do the initial metadata fetch of the book.
     let mut book = Book::new(id)?;
 
@@ -61,16 +61,19 @@ fn get_book(id: u32, ignore_cache: bool) -> eyre::Result<Book> {
             // There is at least one out-of-date chapter, update the chapters.
             book.update_chapter_content()?;
 
+            #[allow(clippy::cast_possible_truncation)]
+            let nb_new_chapter = (book.chapters.len() - cached.chapters.len()) as u16;
+
             // Save back to cache.
             Cache::write_book(&book)?;
 
-            Ok(book)
+            Ok((book, UpdateResult::Updated(nb_new_chapter)))
         } else {
             // Just update the cover URL and resave to cache.
             cached.cover_url = book.cover_url;
             Cache::write_book(&cached)?;
 
-            Ok(cached)
+            Ok((cached, UpdateResult::UpToDate))
         }
     } else {
         // Load book chapters.
@@ -79,8 +82,11 @@ fn get_book(id: u32, ignore_cache: bool) -> eyre::Result<Book> {
         // Write book to cache.
         Cache::write_book(&book)?;
 
+        #[allow(clippy::cast_possible_truncation)]
+        let nb_new_chapter = book.chapters.len() as u16;
+
         // Return book.
-        Ok(book)
+        Ok((book, UpdateResult::Updated(nb_new_chapter)))
     }
 }
 
@@ -89,9 +95,9 @@ fn do_update(path: &Path) -> Option<UpdateResult> {
     let url = Url::parse(&url).ok()?;
     let id = get_id_from_url(&url).ok()?;
 
-    let book = get_book(id, false).ok()?;
+    let (book, result) = get_book(id, false).ok()?;
     epub::write(&book, path.to_str().map(String::from)).ok()?;
-    Some(UpdateResult::Updated(0))
+    Some(result)
 }
 
 fn get_id_from_url(url: &Url) -> Result<u32, eyre::Error> {
