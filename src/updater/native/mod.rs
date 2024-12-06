@@ -1,5 +1,5 @@
-use std::ffi::OsStr;
 use std::path::Path;
+use std::{collections::HashSet, ffi::OsStr};
 
 use ::epub::doc::EpubDoc;
 use cache::Cache;
@@ -24,7 +24,7 @@ impl WebNovel for Native {
         let url = Url::parse(url)?;
         let id = get_id_from_url(&url)?;
 
-        let (book, _) = get_book(id, false)?;
+        let (book, _) = get_book(id)?;
         let outfile = epub::write(&book, filename.and_then(|f| f.to_str()).map(String::from))?;
 
         let file_path = dir.join(outfile);
@@ -36,58 +36,84 @@ impl WebNovel for Native {
     }
 }
 
-fn get_book(id: u32, ignore_cache: bool) -> eyre::Result<(Book, UpdateResult)> {
+fn get_book(id: u32) -> eyre::Result<(Book, UpdateResult)> {
     // Do the initial metadata fetch of the book.
-    let mut book = Book::new(id)?;
+    let mut fetched_book = Book::new(id)?;
 
     // Check the cache.
-    let cached = Cache::read_book(id)?;
-    if let Some(mut cached) = cached {
-        // Compare cached and fetched to see if any chapters are out-of-date.
-        let mut should_update = ignore_cache;
-        for chapter in &book.chapters {
-            if let Some(cached) = cached.chapters.iter().find(|c| c.url == chapter.url) {
-                if cached.date_published != chapter.date_published {
-                    should_update = true;
-                    break;
-                }
-            } else {
-                should_update = true;
-                break;
-            }
-        }
+    let mut current_book =
+        Cache::read_book(id)?.unwrap_or_else(|| fetched_book.clone_without_chapters());
 
-        if should_update {
-            // There is at least one out-of-date chapter, update the chapters.
-            book.update_chapter_content()?;
+    // Remove existing, non-updated chapters
+    fetched_book
+        .chapters
+        .retain(|e| !current_book.chapters.contains(e));
 
-            #[allow(clippy::cast_possible_truncation)]
-            let nb_new_chapter = (book.chapters.len() - cached.chapters.len()) as u16;
+    #[allow(clippy::cast_possible_truncation)]
+    let nb_new_chapter = fetched_book.chapters.len() as u16;
 
-            // Save back to cache.
-            Cache::write_book(&book)?;
+    // Dertermine chapters which already exist but have been updated
+    // (same identifier, different date_published]
+    let updated_chapter_ids: HashSet<_> = fetched_book
+        .chapters
+        .iter()
+        .filter(|c| {
+            current_book
+                .chapters
+                .iter()
+                .any(|e| e.identifier.eq(&c.identifier))
+        })
+        .map(|c| c.identifier.clone())
+        .collect();
 
-            Ok((book, UpdateResult::Updated(nb_new_chapter)))
+    // Update them in the current book
+    current_book
+        .chapters
+        .iter_mut()
+        .filter(|c| updated_chapter_ids.contains(&c.identifier))
+        .for_each(|c| {
+            if let Err(e) = c.update_chapter_content() {
+                tracing::warn!("Could not download chapter '{}' : {}", c.title, e);
+            };
+        });
+
+    // Remove those updated chapters, leaving only new chapters
+    fetched_book
+        .chapters
+        .retain(|c| !updated_chapter_ids.contains(&c.identifier));
+
+    // Proceed to deal with new chapters
+    fetched_book
+        .chapters
+        .iter_mut()
+        .enumerate()
+        .for_each(|(index, chapter)| {
+            tracing::info!(
+                "Downloading chapter '{}' ({} of {})",
+                chapter.title,
+                index + 1,
+                nb_new_chapter
+            );
+            if let Err(e) = chapter.update_chapter_content() {
+                tracing::warn!("Could not download chapter '{}' : {}", chapter.title, e);
+            };
+        });
+
+    current_book.chapters.append(&mut fetched_book.chapters);
+    // TODO sort by order while taking new order into account
+
+    // Update the cover URL and resave to cache.
+    current_book.cover_url = fetched_book.cover_url;
+    Cache::write_book(&current_book)?;
+
+    Ok((
+        current_book,
+        if nb_new_chapter > 0 {
+            UpdateResult::Updated(nb_new_chapter)
         } else {
-            // Just update the cover URL and resave to cache.
-            cached.cover_url = book.cover_url;
-            Cache::write_book(&cached)?;
-
-            Ok((cached, UpdateResult::UpToDate))
-        }
-    } else {
-        // Load book chapters.
-        book.update_chapter_content()?;
-
-        // Write book to cache.
-        Cache::write_book(&book)?;
-
-        #[allow(clippy::cast_possible_truncation)]
-        let nb_new_chapter = book.chapters.len() as u16;
-
-        // Return book.
-        Ok((book, UpdateResult::Updated(nb_new_chapter)))
-    }
+            UpdateResult::UpToDate
+        },
+    ))
 }
 
 fn do_update(path: &Path) -> Option<UpdateResult> {
@@ -95,7 +121,7 @@ fn do_update(path: &Path) -> Option<UpdateResult> {
     let url = Url::parse(&url).ok()?;
     let id = get_id_from_url(&url).ok()?;
 
-    let (book, result) = get_book(id, false).ok()?;
+    let (book, result) = get_book(id).ok()?;
     epub::write(&book, path.to_str().map(String::from)).ok()?;
     Some(result)
 }

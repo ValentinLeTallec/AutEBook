@@ -113,52 +113,17 @@ impl Book {
         })
     }
 
-    pub fn update_chapter_content(&mut self) -> eyre::Result<()> {
-        let num_chapters = self.chapters.len();
-        for (index, chapter) in self.chapters.iter_mut().enumerate() {
-            tracing::info!(
-                "Downloading chapter '{}' ({} of {})",
-                chapter.title,
-                index + 1,
-                num_chapters
-            );
-            let url = format!("https://www.royalroad.com{}", chapter.url);
-            let request = CLIENT
-                .get(url)
-                .header("User-Agent", USER_AGENT)
-                .send()?
-                .error_for_status()?;
-            let text = request.text()?;
-
-            let parsed = Html::parse_document(&text);
-
-            // Parse content.
-            let content = parsed
-                .select(&CONTENT_SELECTOR)
-                .next()
-                .ok_or_else(|| eyre!("No content found"))?
-                .inner_html();
-            chapter.content = Some(content);
-
-            // Parse starting author note.
-            if let Some(authors_note) = parsed.select(&AUTHORS_NOTE_START_SELECTOR).next() {
-                let authors_note = authors_note.inner_html();
-                if !authors_note.is_empty() {
-                    chapter.authors_note_start = Some(authors_note);
-                }
-            }
-            // Parse ending author note.
-            if let Some(authors_note) = parsed.select(&AUTHORS_NOTE_END_SELECTOR).next() {
-                let authors_note = authors_note.inner_html();
-                if !authors_note.is_empty() {
-                    chapter.authors_note_end = Some(authors_note);
-                }
-            }
-
-            // Sleep to avoid rate limiting.
-            thread::sleep(Duration::from_millis(100));
+    pub fn clone_without_chapters(&self) -> Self {
+        Self {
+            id: self.id,
+            url: self.url.clone(),
+            title: self.title.clone(),
+            author: self.author.clone(),
+            description: self.description.clone(),
+            date_published: self.date_published.clone(),
+            cover_url: self.cover_url.clone(),
+            chapters: Vec::new(),
         }
-        Ok(())
     }
 }
 
@@ -196,6 +161,55 @@ pub struct Chapter {
 
     pub authors_note_start: Option<String>,
     pub authors_note_end: Option<String>,
+}
+
+impl PartialEq for Chapter {
+    fn eq(&self, other: &Self) -> bool {
+        self.identifier.eq(&other.identifier) && self.date_published.eq(&other.date_published)
+    }
+}
+impl Eq for Chapter {}
+impl Chapter {
+    pub fn update_chapter_content(&mut self) -> eyre::Result<()> {
+        if self.content.is_some() {
+            return Ok(());
+        }
+        let request = CLIENT
+            .get(&self.url)
+            .header("User-Agent", USER_AGENT)
+            .send()?
+            .error_for_status()?;
+        let text = request.text()?;
+
+        let parsed = Html::parse_document(&text);
+
+        // Parse content.
+        let content = parsed
+            .select(&CONTENT_SELECTOR)
+            .next()
+            .ok_or_else(|| eyre!("No content found"))?
+            .inner_html();
+        self.content = Some(content);
+
+        // Parse starting author note.
+        if let Some(authors_note) = parsed.select(&AUTHORS_NOTE_START_SELECTOR).next() {
+            let authors_note = authors_note.inner_html();
+            if !authors_note.is_empty() {
+                self.authors_note_start = Some(authors_note);
+            }
+        }
+        // Parse ending author note.
+        if let Some(authors_note) = parsed.select(&AUTHORS_NOTE_END_SELECTOR).next() {
+            let authors_note = authors_note.inner_html();
+            if !authors_note.is_empty() {
+                self.authors_note_end = Some(authors_note);
+            }
+        }
+
+        // Sleep to avoid rate limiting.
+        thread::sleep(Duration::from_millis(100));
+        Ok(())
+    }
 }
 
 pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
