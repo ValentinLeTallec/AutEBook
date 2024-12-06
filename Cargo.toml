@@ -18,6 +18,9 @@ fanficfare = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.dev.package."*"]
+opt-level = 3
+
 [dependencies]
 chrono = "0.4.26"
 clap = { version = "4.3.11", features = ["derive"] }
@@ -34,6 +37,7 @@ serde_json = "1.0.100"
 serde_yaml = "0.9.22"
 thiserror = "1.0.47"
 walkdir = "2.3.3"
+lazy_static = "1.5.0"
 
 # Depencies from rr-to-epub
 # eyre = "0.6.12"
@@ -46,7 +50,6 @@ reqwest = { version = "0.11.24", default-features = false, features = [
   "rustls-tls-webpki-roots",
   "blocking",
 ] }
-regex = "1.10.3"
 tempfile = "3.10.0"
 uuid = { version = "1.7.0", features = ["fast-rng", "v4"] }
 scraper = "0.17.1"

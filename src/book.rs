@@ -1,8 +1,8 @@
 use crate::source;
 use crate::updater::{Unsupported, UpdateResult, WebNovel};
 
-use epub::doc::EpubDoc;
 use color_eyre::Result;
+use epub::doc::EpubDoc;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 

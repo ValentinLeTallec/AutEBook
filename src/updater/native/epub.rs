@@ -2,6 +2,7 @@ use crate::updater::native::image;
 use crate::updater::native::{cache::Cache, xml_ext::write_elements};
 use color_eyre::eyre::{self, bail, eyre};
 use lazy_regex::regex;
+use lazy_static::lazy_static;
 use reqwest::blocking::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
@@ -18,8 +19,24 @@ pub const FORBIDDEN_CHARACTERS: [char; 13] = [
     '/', '\\', ':', '*', '?', '"', '<', '>', '|', '%', '"', '[', ']',
 ];
 
-pub fn selector(selector: &str) -> eyre::Result<scraper::Selector> {
-    Selector::parse(selector).map_err(|err| eyre!("{err}"))
+#[allow(clippy::unwrap_used)]
+pub fn compile_time_selector(selector: &str) -> scraper::Selector {
+    Selector::parse(selector).unwrap()
+}
+
+lazy_static! {
+    static ref CLIENT: Client = Client::new();
+
+    static ref CONTENT_SELECTOR: Selector = compile_time_selector(".chapter-inner.chapter-content");
+
+    // Strange selectors are because RR doesn't have a way to tell if the author's note is
+    // at the start or the end in the HTML.
+    static ref AUTHORS_NOTE_START_SELECTOR: Selector = compile_time_selector("hr + .portlet > .author-note");
+    static ref AUTHORS_NOTE_END_SELECTOR: Selector = compile_time_selector("div + .portlet > .author-note");
+
+    static ref TITLE_SELECTOR : Selector = compile_time_selector("h1");
+    static ref AUTHOR_SELECTOR : Selector = compile_time_selector("h4 a");
+    static ref DESCRIPTION_SELECTOR : Selector = compile_time_selector(".description > .hidden-content");
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
@@ -32,9 +49,6 @@ pub struct Book {
     pub date_published: String,
     pub cover_url: String,
     pub chapters: Vec<Chapter>,
-
-    #[serde(skip)]
-    client: Client,
 }
 impl Book {
     pub fn new(id: u32) -> eyre::Result<Self> {
@@ -42,10 +56,9 @@ impl Book {
         let cover_regex = regex!(r#"window\.fictionCover = "(.*)";"#);
         // Chapters array in script tag: window.chapters = [...];
         let chapters_regex = regex!(r"window\.chapters = (\[.*]);");
-        let client = Client::new();
 
         let url = format!("https://www.royalroad.com/fiction/{id}");
-        let request = client
+        let request = CLIENT
             .get(&url)
             .header("User-Agent", USER_AGENT)
             .send()?
@@ -54,21 +67,18 @@ impl Book {
 
         // Parse book metadata.
         let parsed = Html::parse_document(&response);
-        let title_selector = selector("h1")?;
-        let author_selector = selector("h4 a")?;
-        let description_selector = selector(".description > .hidden-content")?;
         let title = parsed
-            .select(&title_selector)
+            .select(&TITLE_SELECTOR)
             .next()
             .ok_or_else(|| eyre!("No title found"))?
             .inner_html();
         let author = parsed
-            .select(&author_selector)
+            .select(&AUTHOR_SELECTOR)
             .next()
             .ok_or_else(|| eyre!("No author found"))?
             .inner_html();
         let description = parsed
-            .select(&description_selector)
+            .select(&DESCRIPTION_SELECTOR)
             .next()
             .ok_or_else(|| eyre!("No description found"))?
             .inner_html();
@@ -97,18 +107,11 @@ impl Book {
                 .date
                 .clone(),
             chapters,
-            client,
         })
     }
 
     pub fn update_chapter_content(&mut self) -> eyre::Result<()> {
         let num_chapters = self.chapters.len();
-        let content_selector = selector(".chapter-inner.chapter-content")?;
-
-        // Strange selectors are because RR doesn't have a way to tell if the author's note is
-        // at the start or the end in the HTML.
-        let authors_note_start_selector = selector("hr + .portlet > .author-note")?;
-        let authors_note_end_selector = selector("div + .portlet > .author-note")?;
         for (index, chapter) in self.chapters.iter_mut().enumerate() {
             tracing::info!(
                 "Downloading chapter '{}' ({} of {})",
@@ -117,8 +120,7 @@ impl Book {
                 num_chapters
             );
             let url = format!("https://www.royalroad.com{}", chapter.url);
-            let request = self
-                .client
+            let request = CLIENT
                 .get(url)
                 .header("User-Agent", USER_AGENT)
                 .send()?
@@ -129,21 +131,21 @@ impl Book {
 
             // Parse content.
             let content = parsed
-                .select(&content_selector)
+                .select(&CONTENT_SELECTOR)
                 .next()
                 .ok_or_else(|| eyre!("No content found"))?
                 .inner_html();
             chapter.content = Some(content);
 
             // Parse starting author note.
-            if let Some(authors_note) = parsed.select(&authors_note_start_selector).next() {
+            if let Some(authors_note) = parsed.select(&AUTHORS_NOTE_START_SELECTOR).next() {
                 let authors_note = authors_note.inner_html();
                 if !authors_note.is_empty() {
                     chapter.authors_note_start = Some(authors_note);
                 }
             }
             // Parse ending author note.
-            if let Some(authors_note) = parsed.select(&authors_note_end_selector).next() {
+            if let Some(authors_note) = parsed.select(&AUTHORS_NOTE_END_SELECTOR).next() {
                 let authors_note = authors_note.inner_html();
                 if !authors_note.is_empty() {
                     chapter.authors_note_end = Some(authors_note);
@@ -753,11 +755,7 @@ pub fn download_image(book: &Book, url: &str, filename: &str) -> eyre::Result<Ve
         return Ok(image.into());
     }
 
-    let image = book
-        .client
-        .get(url)
-        .header("User-Agent", USER_AGENT)
-        .send()?;
+    let image = CLIENT.get(url).header("User-Agent", USER_AGENT).send()?;
 
     if !image.status().is_success() {
         // Ignore failed images.
