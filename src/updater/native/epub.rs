@@ -92,7 +92,10 @@ impl Book {
             .captures(&response)
             .ok_or_else(|| eyre!("No chapters found"))?[1]
             .to_string();
-        let chapters: Vec<Chapter> = serde_json::from_str(&chapters)?;
+        let chapters: Vec<Chapter> = serde_json::from_str::<Vec<RoyalRoadChapter>>(&chapters)?
+            .iter()
+            .map(RoyalRoadChapter::to_chapter)
+            .collect();
 
         Ok(Self {
             id,
@@ -104,7 +107,7 @@ impl Book {
             date_published: chapters
                 .first()
                 .ok_or_else(|| eyre!("No chapter"))?
-                .date
+                .date_published
                 .clone(),
             chapters,
         })
@@ -160,10 +163,33 @@ impl Book {
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
-pub struct Chapter {
+pub struct RoyalRoadChapter {
     pub id: u32,
+    pub order: u32,
     pub date: String,
-    pub slug: String,
+    pub title: String,
+    pub url: String,
+}
+impl RoyalRoadChapter {
+    pub fn to_chapter(&self) -> Chapter {
+        Chapter {
+            identifier: self.id.to_string(),
+            date_published: self.date.clone(),
+            title: self.title.clone(),
+            order: self.order,
+            url: format!("https://www.royalroad.com{}", self.url),
+            content: None,
+            authors_note_start: None,
+            authors_note_end: None,
+        }
+    }
+}
+
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+pub struct Chapter {
+    pub identifier: String,
+    pub order: u32,
+    pub date_published: String,
     pub title: String,
     pub url: String,
     pub content: Option<String>,
@@ -213,7 +239,7 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
     for chapter in &book.chapters {
         // Write the chapter file.
         epub_file.start_file(
-            format!("OEBPS/text/{}.xhtml", chapter.id),
+            format!("OEBPS/text/{}.xhtml", chapter.identifier),
             zip::write::FileOptions::default(),
         )?;
         chapter_html(chapter, &mut epub_file)?;
@@ -613,8 +639,8 @@ fn content_opf(
             &mut xml,
             vec![
                 XmlEvent::start_element("item")
-                    .attr("id", &format!("{}", &chapter.id))
-                    .attr("href", &format!("text/{}.xhtml", &chapter.id))
+                    .attr("id", &chapter.identifier)
+                    .attr("href", &format!("text/{}.xhtml", &chapter.identifier))
                     .attr("media-type", "application/xhtml+xml")
                     .into(),
                 XmlEvent::end_element().into(),
@@ -640,7 +666,7 @@ fn content_opf(
             &mut xml,
             vec![
                 XmlEvent::start_element("itemref")
-                    .attr("idref", &format!("{}", &chapter.id))
+                    .attr("idref", &chapter.identifier)
                     .into(),
                 XmlEvent::end_element().into(),
             ],
@@ -720,7 +746,7 @@ fn toc_ncx(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
             &mut xml,
             vec![
                 XmlEvent::start_element("navPoint")
-                    .attr("id", &format!("{}", &chapter.id))
+                    .attr("id", &chapter.identifier)
                     .attr("playOrder", &format!("{}", index + 1))
                     .into(),
                 XmlEvent::start_element("navLabel").into(),
@@ -729,7 +755,7 @@ fn toc_ncx(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
                 XmlEvent::end_element().into(),
                 XmlEvent::end_element().into(),
                 XmlEvent::start_element("content")
-                    .attr("src", &format!("text/{}.xhtml", &chapter.id))
+                    .attr("src", &format!("text/{}.xhtml", &chapter.identifier))
                     .into(),
                 XmlEvent::end_element().into(),
                 XmlEvent::end_element().into(),

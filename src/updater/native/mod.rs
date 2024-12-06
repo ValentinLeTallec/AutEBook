@@ -47,7 +47,7 @@ fn get_book(id: u32, ignore_cache: bool) -> eyre::Result<(Book, UpdateResult)> {
         let mut should_update = ignore_cache;
         for chapter in &book.chapters {
             if let Some(cached) = cached.chapters.iter().find(|c| c.url == chapter.url) {
-                if cached.date != chapter.date {
+                if cached.date_published != chapter.date_published {
                     should_update = true;
                     break;
                 }
