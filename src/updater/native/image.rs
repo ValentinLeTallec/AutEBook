@@ -2,49 +2,49 @@ use color_eyre::eyre::{self, bail, eyre};
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
 use image::io::Reader;
+use lazy_static::lazy_static;
 use scraper::{Html, Selector};
 use std::io::Cursor;
 use url::Url;
 use webp::Decoder;
 
-use crate::updater::native::epub::FORBIDDEN_CHARACTERS;
+use crate::updater::native::epub::{compile_time_selector, FORBIDDEN_CHARACTERS};
+lazy_static! {
+    static ref IMAGE_SELECTOR: Selector = compile_time_selector("img");
+}
 
 pub fn extract_file_name(url: &str) -> eyre::Result<String> {
-    let mut url = Url::parse(url)?;
+    let mut url = Url::parse(url).map_err(|e| eyre!("{e} (Image URL : {url})"))?;
     url.set_query(None);
     url.set_fragment(None);
 
     Ok(url
         .path_segments()
         .and_then(std::iter::Iterator::last)
-        .ok_or_else(|| eyre!("Invalid image URL"))?
+        .ok_or_else(|| eyre!("Invalid image URL : {url}"))?
         .to_string()
         .replace(FORBIDDEN_CHARACTERS, "_"))
 }
 
 pub fn extract_urls_from_html(body: &Option<String>) -> Vec<String> {
-    if let (Ok(selector), Some(text)) = (Selector::parse("img"), body) {
+    body.as_ref().map_or_else(Vec::new, |text| {
         Html::parse_fragment(text)
-            .select(&selector)
+            .select(&IMAGE_SELECTOR)
             .filter_map(|element| element.value().attr("src"))
+            .filter(|u| Url::parse(u).is_ok())
             .map(std::string::ToString::to_string)
             .collect()
-    } else {
-        Vec::new()
-    }
+    })
 }
 
-pub fn replace_url_with_path(mut body: String) -> eyre::Result<String> {
-    let parsed = Html::parse_fragment(&body);
-    let selector = Selector::parse("img").map_err(|err| eyre!("{err}"))?;
+pub fn replace_url_with_path(mut body: String) -> String {
+    Html::parse_fragment(&body)
+        .select(&IMAGE_SELECTOR)
+        .filter_map(|element| element.value().attr("src"))
+        .filter_map(|src| extract_file_name(src).map(|new_src| (src, new_src)).ok())
+        .for_each(|(src, new_src)| body = body.replace(src, &new_src));
 
-    for element in parsed.select(&selector) {
-        if let Some(src) = element.value().attr("src") {
-            let new_src = format!("../images/{}", extract_file_name(src)?);
-            body = body.replace(src, &new_src);
-        }
-    }
-    Ok(body)
+    body
 }
 
 pub fn resize(bytes: bytes::Bytes) -> eyre::Result<Vec<u8>> {
@@ -183,5 +183,15 @@ impl ResizableImageFormat {
                 .write_with_encoder(JpegEncoder::new_with_quality(Cursor::new(&mut buffer), 80))?,
         };
         Ok(buffer)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use scraper::Selector;
+
+    #[test]
+    fn test_selectors() {
+        assert!(Selector::parse("img").is_ok());
     }
 }

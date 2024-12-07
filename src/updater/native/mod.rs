@@ -131,6 +131,6 @@ fn get_id_from_url(url: &Url) -> Result<u32, eyre::Error> {
         .path_segments()
         .and_then(|mut s| s.nth(1))
         .and_then(|f| f.parse().ok())
-        .ok_or_else(|| eyre!(" Invalid book URL: {url}"))?;
+        .ok_or_else(|| eyre!("Invalid book URL: {url}"))?;
     Ok(id)
 }

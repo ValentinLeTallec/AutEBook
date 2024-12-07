@@ -270,7 +270,13 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
 
     // Download the images and add them to the e-book
     for url in &images {
-        let mut filename = image::extract_file_name(url)?;
+        let mut filename = match image::extract_file_name(url) {
+            Ok(f) => f,
+            Err(e) => {
+                tracing::error!("{e} (URL : {url})");
+                continue;
+            }
+        };
 
         // In some case images can have the same name, we prefix it
         // with an integer to disambiguate.
@@ -429,7 +435,7 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
                 XmlEvent::start_element("div")
                     .attr("class", "authors-note-start")
                     .into(),
-                XmlEvent::characters(&image::replace_url_with_path(authors_note_start)?),
+                XmlEvent::characters(&image::replace_url_with_path(authors_note_start)),
                 XmlEvent::end_element().into(),
             ],
         )?;
@@ -452,7 +458,7 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
                     .attr("class", "chapter-content")
                     .into(),
                 // Rewrite the images to be pointing to our downloaded ones.
-                XmlEvent::characters(&image::replace_url_with_path(content)?),
+                XmlEvent::characters(&image::replace_url_with_path(content)),
                 XmlEvent::end_element().into(),
             ],
         )?;
@@ -466,7 +472,7 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
                 XmlEvent::start_element("div")
                     .attr("class", "authors-note-end")
                     .into(),
-                XmlEvent::characters(&image::replace_url_with_path(authors_note_end)?),
+                XmlEvent::characters(&image::replace_url_with_path(authors_note_end)),
                 XmlEvent::end_element().into(),
             ],
         )?;
