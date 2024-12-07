@@ -1,4 +1,3 @@
-use color_eyre::eyre;
 use std::io::Write;
 use xml::writer::XmlEvent;
 use xml::EventWriter;

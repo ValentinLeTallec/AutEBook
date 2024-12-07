@@ -1,6 +1,6 @@
 use crate::updater::native::image;
 use crate::updater::native::{cache::Cache, xml_ext::write_elements};
-use color_eyre::eyre::{self, bail, eyre};
+use eyre::{bail, eyre};
 use lazy_regex::regex;
 use lazy_static::lazy_static;
 use reqwest::blocking::Client;

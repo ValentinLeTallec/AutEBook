@@ -3,8 +3,7 @@ use crate::updater::UpdateResult;
 use crate::updater::WebNovel;
 
 // use rss::Channel;
-use color_eyre::eyre::{bail, eyre};
-use color_eyre::Result;
+use eyre::{bail, eyre, Result};
 use lazy_regex::regex;
 use serde::Deserialize;
 use std::ffi::OsStr;

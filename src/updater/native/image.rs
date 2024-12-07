@@ -1,4 +1,4 @@
-use color_eyre::eyre::{self, bail, eyre};
+use eyre::{bail, eyre};
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
 use image::io::Reader;

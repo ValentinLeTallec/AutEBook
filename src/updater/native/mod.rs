@@ -3,8 +3,8 @@ use std::{collections::HashSet, ffi::OsStr};
 
 use ::epub::doc::EpubDoc;
 use cache::Cache;
-use color_eyre::eyre::{self, eyre, Result};
 use epub::Book;
+use eyre::{eyre, Result};
 use url::Url;
 
 use super::{UpdateResult, WebNovel};

@@ -17,7 +17,6 @@ mod updater;
 use crate::book::Book;
 use crate::updater::UpdateResult;
 use clap::{CommandFactory, Parser, Subcommand};
-use color_eyre::eyre::Result;
 use colorful::Colorful;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
@@ -84,8 +83,7 @@ macro_rules! summary {
     }};
 }
 
-fn main() -> Result<()> {
-    color_eyre::install()?;
+fn main() {
     let args = Args::parse();
     setup_nb_threads(args.nb_threads);
     let work_dir = args.dir;
@@ -116,7 +114,6 @@ fn main() -> Result<()> {
             &mut std::io::stdout(),
         ),
     }
-    Ok(())
 }
 
 fn setup_nb_threads(nb_threads: usize) {

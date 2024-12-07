@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use bytes::Bytes;
-use color_eyre::eyre::{self, eyre};
+use eyre::eyre;
 
 use crate::updater::native::epub::Book;
 

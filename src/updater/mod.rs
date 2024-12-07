@@ -1,13 +1,13 @@
 mod fanficfare;
 mod native;
 
-use color_eyre::eyre::eyre;
-use color_eyre::Result;
+use eyre::{eyre, Result};
+use std::{ffi::OsStr, fs, path::Path};
+use thiserror::Error;
+
 #[cfg(feature = "fanficfare")]
 pub use fanficfare::FanFicFare;
 pub use native::Native;
-use std::{ffi::OsStr, fs, path::Path};
-use thiserror::Error;
 
 use crate::book::Book;
 
