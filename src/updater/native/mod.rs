@@ -49,8 +49,9 @@ fn get_book(id: u32) -> eyre::Result<(Book, UpdateResult)> {
         .chapters
         .retain(|e| !current_book.chapters.contains(e));
 
-    #[allow(clippy::cast_possible_truncation)]
-    let nb_new_chapter = fetched_book.chapters.len() as u16;
+    let nb_new_chapter = u16::try_from(fetched_book.chapters.len()).map_err(|_| {
+        eyre!("There is way too many new chapters (more than 50_000), something probably got wrong")
+    })?;
 
     // Dertermine chapters which already exist but have been updated
     // (same identifier, different date_published]
@@ -100,7 +101,6 @@ fn get_book(id: u32) -> eyre::Result<(Book, UpdateResult)> {
         });
 
     current_book.chapters.append(&mut fetched_book.chapters);
-    // TODO sort by order while taking new order into account
 
     // Update the cover URL and resave to cache.
     current_book.cover_url = fetched_book.cover_url;
