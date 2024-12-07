@@ -142,7 +142,7 @@ fn create_books(dir: &Path, urls: &[String]) {
 
         match creation_res {
             Ok(book) => bar.println(format!("{:.50}\n", book.title)),
-            Err(e) => eprintln!("{e}"),
+            Err(e) => bar.println(summary!(e, url, red)),
         }
     });
 }
