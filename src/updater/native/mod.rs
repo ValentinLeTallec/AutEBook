@@ -7,6 +7,8 @@ use epub::Book;
 use eyre::{eyre, Result};
 use url::Url;
 
+use crate::{get_progress_bar, MULTI_PROGRESS};
+
 use super::{UpdateResult, WebNovel};
 
 mod cache;
@@ -52,6 +54,8 @@ fn get_book(id: u32) -> eyre::Result<(Book, UpdateResult)> {
     let nb_new_chapter = u16::try_from(fetched_book.chapters.len()).map_err(|_| {
         eyre!("There is way too many new chapters (more than 50_000), something probably got wrong")
     })?;
+    let bar = MULTI_PROGRESS.add(get_progress_bar(nb_new_chapter.into(), 5));
+    bar.set_prefix(current_book.title.clone());
 
     // Dertermine chapters which already exist but have been updated
     // (same identifier, different date_published]
@@ -76,6 +80,7 @@ fn get_book(id: u32) -> eyre::Result<(Book, UpdateResult)> {
             if let Err(e) = c.update_chapter_content() {
                 tracing::warn!("Could not download chapter '{}' : {}", c.title, e);
             };
+            bar.inc(1);
         });
 
     // Remove those updated chapters, leaving only new chapters
@@ -98,7 +103,9 @@ fn get_book(id: u32) -> eyre::Result<(Book, UpdateResult)> {
             if let Err(e) = chapter.update_chapter_content() {
                 tracing::warn!("Could not download chapter '{}' : {}", chapter.title, e);
             };
+            bar.inc(1);
         });
+    bar.finish();
 
     current_book.chapters.append(&mut fetched_book.chapters);
 

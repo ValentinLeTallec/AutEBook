@@ -18,13 +18,18 @@ use crate::book::Book;
 use crate::updater::UpdateResult;
 use clap::{CommandFactory, Parser, Subcommand};
 use colorful::Colorful;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use lazy_static::lazy_static;
 use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 const EPUB: &str = "epub";
+
+lazy_static! {
+    pub static ref MULTI_PROGRESS: MultiProgress = MultiProgress::new();
+}
 
 /// A small utility used to obtain and update web novels as e-books.
 /// It currently levrage `FanFicFare` but is extensible to other updaters.
@@ -130,7 +135,7 @@ fn setup_nb_threads(nb_threads: usize) {
 }
 
 fn create_books(dir: &Path, urls: &[String]) {
-    let bar = get_progress_bar(urls.len() as u64);
+    let bar = MULTI_PROGRESS.add(get_progress_bar(urls.len() as u64, 1));
 
     urls.par_iter().for_each(|url| {
         bar.set_prefix(url.clone());
@@ -142,10 +147,11 @@ fn create_books(dir: &Path, urls: &[String]) {
             Err(e) => bar.println(summary!(e, url, red)),
         }
     });
+    bar.finish();
 }
 
 fn update_books(book_files: &[FileToUpdate], stash: bool) {
-    let bar = get_progress_bar(book_files.len() as u64);
+    let bar = MULTI_PROGRESS.add(get_progress_bar(book_files.len() as u64, 1));
 
     book_files.par_iter().for_each(|file_to_update| {
         let path = file_to_update.file_path.path();
@@ -168,13 +174,23 @@ fn update_books(book_files: &[FileToUpdate], stash: bool) {
         }
         bar.inc(1);
     });
+    bar.finish();
 }
 
-fn get_progress_bar(len: u64) -> ProgressBar {
-    let bar = ProgressBar::new(len);
-    let template_progress = ProgressStyle::with_template(
-        "\n{prefix}\n[{elapsed}/{duration}] {wide_bar} {pos:>3}/{len:3} ({percent}%)\n{msg}",
-    )
+#[must_use]
+pub fn get_progress_bar(len: u64, show_if_more_than: u64) -> ProgressBar {
+    let show = show_if_more_than < len;
+
+    let bar = if show {
+        ProgressBar::new(len)
+    } else {
+        ProgressBar::hidden()
+    };
+    let template_progress = ProgressStyle::with_template(if show {
+        "\n{prefix}\n[{elapsed}/{duration}] {wide_bar} {pos:>3}/{len:3} ({percent}%)\n{msg}"
+    } else {
+        ""
+    })
     .unwrap_or_else(|err| {
         eprintln!("{err}");
         ProgressStyle::default_bar()
