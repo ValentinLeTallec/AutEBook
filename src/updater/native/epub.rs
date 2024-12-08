@@ -207,7 +207,7 @@ impl Chapter {
         }
 
         // Sleep to avoid rate limiting.
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(200));
         Ok(())
     }
 }
