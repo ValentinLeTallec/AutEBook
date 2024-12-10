@@ -23,13 +23,17 @@ impl Source for Unsupported {
     }
 }
 
+macro_rules! try_source {
+    ($book_source:ident, $url:expr) => {{
+        if let Some(fiction) = $book_source::new($url) {
+            return Box::new(fiction);
+        }
+    }};
+}
+
 pub fn get(url: &str) -> Box<dyn Source> {
-    if let Some(fiction) = RoyalRoad::new(url) {
-        return Box::new(fiction);
-    }
+    try_source!(RoyalRoad, url);
     #[cfg(feature = "fanficfare")]
-    if let Some(fiction) = FanFicFareCompatible::new(url) {
-        return Box::new(fiction);
-    }
+    try_source!(FanFicFareCompatible, url);
     Box::new(Unsupported {})
 }
