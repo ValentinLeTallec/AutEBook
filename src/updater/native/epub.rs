@@ -3,6 +3,7 @@ use crate::updater::native::{cache::Cache, xml_ext::write_elements};
 use crate::{ErrorPrint, MULTI_PROGRESS};
 use chrono::{DateTime, Utc};
 use derive_more::derive::Debug;
+use epub::doc::EpubDoc;
 use eyre::{bail, eyre};
 use lazy_regex::regex;
 use lazy_static::lazy_static;
@@ -11,8 +12,10 @@ use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::io::Write;
+use std::path::Path;
 use std::thread;
 use std::time::Duration;
+use url::Url;
 use uuid::Uuid;
 use xml::writer::XmlEvent;
 use xml::EmitterConfig;
@@ -40,6 +43,11 @@ lazy_static! {
     static ref TITLE_SELECTOR : Selector = compile_time_selector("h1");
     static ref AUTHOR_SELECTOR : Selector = compile_time_selector("h4 a");
     static ref DESCRIPTION_SELECTOR : Selector = compile_time_selector(".description > .hidden-content");
+
+    static ref TITLE_ELEMENT_SELECTOR : Selector = compile_time_selector("title");
+    static ref BODY_ELEMENT_SELECTOR : Selector = compile_time_selector("body");
+    static ref META_CHAPTER_URL_SELECTOR : Selector = compile_time_selector("meta[name=chapterurl]");
+    static ref META_CHAPTER_DATE_PUBLISHED_SELECTOR : Selector = compile_time_selector("meta[name=published]");
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
@@ -115,6 +123,106 @@ impl Book {
                 .to_rfc3339(),
             chapters,
         })
+    }
+
+    pub fn from_path(id: u32, path: &Path) -> eyre::Result<Self> {
+        let now = chrono::Utc::now();
+        let mut epub_doc = EpubDoc::new(path)?;
+        let mut book = Self {
+            id,
+            url: epub_doc.mdata("source").unwrap_or_default(),
+            title: epub_doc.mdata("title").unwrap_or_default(),
+            author: epub_doc.mdata("creator").unwrap_or_default(),
+            description: epub_doc.mdata("description").unwrap_or_default(),
+            date_published: epub_doc.mdata("date").unwrap_or_else(|| now.to_rfc3339()),
+            cover_url: String::new(),
+            chapters: Vec::new(),
+        };
+
+        let image_ids: Vec<_> = epub_doc
+            .resources
+            .iter()
+            .filter(|(_id, (_path, mime))| mime.starts_with("image"))
+            .map(|(id, _)| id.clone())
+            .collect();
+
+        image_ids
+            .iter()
+            .filter_map(|id| epub_doc.get_resource(id).map(|(i, _)| (id.clone(), i)))
+            .for_each(|(id, image)| {
+                if let Err(e) = Cache::write_inline_image(&book, &id, &image) {
+                    MULTI_PROGRESS.eprintln(&format!("{e}"));
+                };
+            });
+
+        while epub_doc.go_next() {
+            if epub_doc
+                .get_current_id()
+                .is_some_and(|id| id == "nav.xhtml")
+            {
+                continue;
+            }
+
+            let xhtml = epub_doc
+                .get_current_str()
+                .map(|(content, _mime)| content)
+                .unwrap_or_default();
+
+            let parsed = Html::parse_document(&xhtml);
+
+            let title = parsed
+                .select(&TITLE_ELEMENT_SELECTOR)
+                .next()
+                .map(|e| e.inner_html())
+                .unwrap_or_default();
+
+            let content = parsed
+                .select(&BODY_ELEMENT_SELECTOR)
+                .next()
+                .map(|e| e.inner_html())
+                .map(|e| e.replace(&format!("<h3 class=\"fff_chapter_title\">{title}</h3>"), ""))
+                .map(|e| e.replace(&format!("<h1 class=\"chapter-title\">{title}</h1>"), ""));
+
+            let url = parsed
+                .select(&META_CHAPTER_URL_SELECTOR)
+                .next()
+                .and_then(|e| e.attr("content"))
+                .map(ToString::to_string)
+                .unwrap_or_default();
+
+            let date_published = parsed
+                .select(&META_CHAPTER_DATE_PUBLISHED_SELECTOR)
+                .next()
+                .and_then(|e| e.attr("content"))
+                .and_then(|d| DateTime::parse_from_rfc3339(d).ok())
+                .unwrap_or_else(|| now.into())
+                .into();
+
+            let identifier: String = Url::parse(&url)
+                .ok()
+                .and_then(|url| {
+                    url.path_segments()
+                        .and_then(|mut x| x.nth(4).map(ToString::to_string))
+                })
+                .unwrap_or_else(|| {
+                    epub_doc
+                        .get_current_id()
+                        .map(|s| s.replace(".xhtml", ""))
+                        .unwrap_or_default()
+                })
+                .to_string();
+
+            book.chapters.push(Chapter {
+                identifier,
+                date_published,
+                title,
+                url,
+                content,
+                authors_note_start: None,
+                authors_note_end: None,
+            });
+        }
+        Ok(book)
     }
 
     pub fn clone_without_chapters(&self) -> Self {
@@ -410,6 +518,18 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
                     XmlEvent::start_element("meta")
                         .attr("name", "generator")
                         .attr("content", "text/html; charset=UTF-8")
+                        .into(),
+                    XmlEvent::end_element().into(),
+
+                    XmlEvent::start_element("meta")
+                        .attr("name", "chapterurl")
+                        .attr("content", &chapter.url)
+                        .into(),
+                    XmlEvent::end_element().into(),
+
+                    XmlEvent::start_element("meta")
+                        .attr("name", "published")
+                        .attr("content", &chapter.date_published.to_rfc3339())
                         .into(),
                     XmlEvent::end_element().into(),
 

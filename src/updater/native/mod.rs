@@ -43,8 +43,10 @@ fn get_book(id: u32, path: Option<&Path>) -> eyre::Result<(Book, UpdateResult)> 
     let mut fetched_book = Book::new(id)?;
 
     // Check the cache.
-    let mut current_book =
-        Cache::read_book(id)?.unwrap_or_else(|| fetched_book.clone_without_chapters());
+    let mut current_book = Cache::read_book(id)?.unwrap_or_else(|| {
+        path.and_then(|path| Book::from_path(id, path).ok())
+            .unwrap_or_else(|| fetched_book.clone_without_chapters())
+    });
 
     // Determine chapters which already exist but have been updated
     // (same identifier, newer date_published)
