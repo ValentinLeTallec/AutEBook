@@ -1,5 +1,7 @@
 use crate::updater::native::image;
 use crate::updater::native::{cache::Cache, xml_ext::write_elements};
+use crate::{ErrorPrint, MULTI_PROGRESS};
+use chrono::{DateTime, Utc};
 use derive_more::derive::Debug;
 use eyre::{bail, eyre};
 use lazy_regex::regex;
@@ -110,7 +112,7 @@ impl Book {
                 .first()
                 .ok_or_else(|| eyre!("No chapter"))?
                 .date_published
-                .clone(),
+                .to_rfc3339(),
             chapters,
         })
     }
@@ -133,7 +135,7 @@ impl Book {
 pub struct RoyalRoadChapter {
     pub id: u32,
     pub order: u32,
-    pub date: String,
+    pub date: DateTime<Utc>,
     pub title: String,
     pub url: String,
 }
@@ -141,9 +143,8 @@ impl RoyalRoadChapter {
     pub fn to_chapter(&self) -> Chapter {
         Chapter {
             identifier: self.id.to_string(),
-            date_published: self.date.clone(),
+            date_published: self.date,
             title: self.title.clone(),
-            order: self.order,
             url: format!("https://www.royalroad.com{}", self.url),
             content: None,
             authors_note_start: None,
@@ -155,8 +156,7 @@ impl RoyalRoadChapter {
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Chapter {
     pub identifier: String,
-    pub order: u32,
-    pub date_published: String,
+    pub date_published: DateTime<Utc>,
     pub title: String,
     pub url: String,
 
@@ -170,7 +170,7 @@ pub struct Chapter {
 
 impl PartialEq for Chapter {
     fn eq(&self, other: &Self) -> bool {
-        self.identifier.eq(&other.identifier) && self.date_published.eq(&other.date_published)
+        self.identifier.eq(&other.identifier)
     }
 }
 impl Eq for Chapter {}
