@@ -1,5 +1,6 @@
 use crate::updater::native::image;
 use crate::updater::native::{cache::Cache, xml_ext::write_elements};
+use derive_more::derive::Debug;
 use eyre::{bail, eyre};
 use lazy_regex::regex;
 use lazy_static::lazy_static;
@@ -45,6 +46,7 @@ pub struct Book {
     pub url: String,
     pub title: String,
     pub author: String,
+    #[debug("{description:50?}")]
     pub description: String,
     pub date_published: String,
     pub cover_url: String,
@@ -157,9 +159,12 @@ pub struct Chapter {
     pub date_published: String,
     pub title: String,
     pub url: String,
-    pub content: Option<String>,
 
+    #[debug("{:?}", content.as_ref().map(|s| format!("{s:.100}")))]
+    pub content: Option<String>,
+    #[debug("{:?}", authors_note_start.as_ref().map(|s| format!("{s:.100}")))]
     pub authors_note_start: Option<String>,
+    #[debug("{:?}", authors_note_end.as_ref().map(|s| format!("{s:.100}")))]
     pub authors_note_end: Option<String>,
 }
 
