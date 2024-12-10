@@ -1,7 +1,7 @@
 mod fanficfare;
 mod native;
 
-use eyre::{eyre, Result};
+use eyre::{eyre, Error, Result};
 use std::{ffi::OsStr, fs, path::Path};
 use thiserror::Error;
 
@@ -18,6 +18,7 @@ pub enum UpdateResult {
     Updated(u16),
     Skipped,
     MoreChapterThanSource(u16),
+    Error(Error),
 }
 
 #[derive(Error, Debug)]

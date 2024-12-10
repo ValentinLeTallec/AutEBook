@@ -171,6 +171,7 @@ fn update_books(book_files: &[FileToUpdate], stash: bool) {
                 }
             }
             UpdateResult::Unsupported | UpdateResult::UpToDate => (),
+            UpdateResult::Error(e) => bar.eprintln(&e.to_string()),
         }
         bar.inc(1);
     });
@@ -197,6 +198,20 @@ pub fn get_progress_bar(len: u64, show_if_more_than: u64) -> ProgressBar {
     });
     bar.set_style(template_progress);
     bar
+}
+
+pub trait ErrorPrint {
+    fn eprintln(&self, msg: &str);
+}
+impl ErrorPrint for ProgressBar {
+    fn eprintln(&self, msg: &str) {
+        self.suspend(|| eprintln!("{}", msg.red()));
+    }
+}
+impl ErrorPrint for MultiProgress {
+    fn eprintln(&self, msg: &str) {
+        self.suspend(|| eprintln!("{}", msg.red()));
+    }
 }
 
 fn get_book_files(path: &PathBuf, stash_dir: &PathBuf) -> Vec<FileToUpdate> {

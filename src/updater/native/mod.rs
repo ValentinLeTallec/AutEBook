@@ -4,7 +4,7 @@ use std::{collections::HashSet, ffi::OsStr};
 use ::epub::doc::EpubDoc;
 use cache::Cache;
 use epub::Book;
-use eyre::{eyre, Result};
+use eyre::{eyre, OptionExt, Result};
 use url::Url;
 
 use crate::{get_progress_bar, MULTI_PROGRESS};
@@ -34,7 +34,7 @@ impl WebNovel for Native {
     }
 
     fn update(&self, path: &Path) -> UpdateResult {
-        do_update(path).unwrap_or(UpdateResult::Unsupported)
+        do_update(path).unwrap_or_else(UpdateResult::Error)
     }
 }
 
@@ -123,14 +123,16 @@ fn get_book(id: u32) -> eyre::Result<(Book, UpdateResult)> {
     ))
 }
 
-fn do_update(path: &Path) -> Option<UpdateResult> {
-    let url = EpubDoc::new(path).ok()?.mdata("source")?;
-    let url = Url::parse(&url).ok()?;
-    let id = get_id_from_url(&url).ok()?;
+fn do_update(path: &Path) -> eyre::Result<UpdateResult> {
+    let url = EpubDoc::new(path)?
+        .mdata("source")
+        .ok_or_eyre("Could not find url")?;
+    let url = Url::parse(&url)?;
+    let id = get_id_from_url(&url)?;
 
-    let (book, result) = get_book(id).ok()?;
-    epub::write(&book, path.to_str().map(String::from)).ok()?;
-    Some(result)
+    let (book, result) = get_book(id)?;
+    epub::write(&book, path.to_str().map(String::from))?;
+    Ok(result)
 }
 
 fn get_id_from_url(url: &Url) -> Result<u32, eyre::Error> {

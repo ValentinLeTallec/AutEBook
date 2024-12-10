@@ -13,6 +13,7 @@ impl Cache {
         std::fs::create_dir_all(&cache_dir)?;
         Ok(cache_dir)
     }
+
     pub fn write_book(book: &Book) -> eyre::Result<()> {
         let cache_dir = Self::cache_path()?.join(book.id.to_string());
         std::fs::create_dir_all(&cache_dir)?;
@@ -23,6 +24,7 @@ impl Cache {
         std::fs::write(cache_file, contents)?;
         Ok(())
     }
+
     pub fn read_book(id: u32) -> eyre::Result<Option<Book>> {
         let cache_dir = Self::cache_path()?;
         let cache_file = cache_dir.join(id.to_string()).join("book.json");
@@ -40,6 +42,7 @@ impl Cache {
         };
         Ok(Some(book))
     }
+
     pub fn write_inline_image(book: &Book, filename: &str, image: &[u8]) -> eyre::Result<()> {
         let cache_dir = Self::cache_path()?.join(book.id.to_string()).join("images");
         std::fs::create_dir_all(&cache_dir)?;
@@ -49,6 +52,7 @@ impl Cache {
         std::fs::write(cache_file, image)?;
         Ok(())
     }
+
     pub fn read_inline_image(book: &Book, filename: &str) -> eyre::Result<Option<Bytes>> {
         let cache_dir = Self::cache_path()?;
         let cache_file = cache_dir
