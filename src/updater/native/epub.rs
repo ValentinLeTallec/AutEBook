@@ -5,14 +5,17 @@ use chrono::{DateTime, Utc};
 use derive_more::derive::Debug;
 use epub::doc::EpubDoc;
 use eyre::{bail, eyre};
+use governor::{DefaultKeyedRateLimiter, Quota, RateLimiter};
 use lazy_regex::regex;
 use lazy_static::lazy_static;
-use reqwest::blocking::Client;
+use reqwest::blocking::{Client, Response};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::io::Write;
+use std::num::NonZeroU32;
 use std::path::Path;
+use std::sync::OnceLock;
 use std::thread;
 use std::time::Duration;
 use url::Url;
@@ -30,9 +33,35 @@ pub fn compile_time_selector(selector: &str) -> scraper::Selector {
     Selector::parse(selector).unwrap()
 }
 
-lazy_static! {
-    static ref CLIENT: Client = Client::new();
+pub fn send_get_request(url: &str) -> std::result::Result<Response, reqwest::Error> {
+    static CLIENT_CELL: OnceLock<Client> = OnceLock::new();
+    static RATE_LIMITER_CELL: OnceLock<DefaultKeyedRateLimiter<String>> = OnceLock::new();
 
+    #[allow(clippy::unwrap_used)]
+    let rate_limiter = RATE_LIMITER_CELL.get_or_init(|| {
+        RateLimiter::keyed(
+            Quota::per_second(NonZeroU32::new(5u32).unwrap())
+                .allow_burst(NonZeroU32::new(1u32).unwrap()),
+        )
+    });
+
+    let host = Url::parse(url)
+        .ok()
+        .and_then(|u| u.host().map(|h| h.to_string()))
+        .unwrap_or_default();
+
+    while rate_limiter.check_key(&host).is_err() {
+        thread::sleep(Duration::from_millis(50));
+    }
+
+    CLIENT_CELL
+        .get_or_init(Client::new)
+        .get(url)
+        .header("User-Agent", USER_AGENT)
+        .send()
+}
+
+lazy_static! {
     static ref CONTENT_SELECTOR: Selector = compile_time_selector(".chapter-inner.chapter-content");
 
     // Strange selectors are because RR doesn't have a way to tell if the author's note is
@@ -69,11 +98,7 @@ impl Book {
         // Chapters array in script tag: window.chapters = [...];
         let chapters_regex = regex!(r"window\.chapters = (\[.*]);");
 
-        let request = CLIENT
-            .get(&url)
-            .header("User-Agent", USER_AGENT)
-            .send()?
-            .error_for_status()?;
+        let request = send_get_request(url)?.error_for_status()?;
         let response = request.text()?;
 
         // Parse book metadata.
@@ -296,11 +321,8 @@ impl Chapter {
         if self.content.is_some() {
             return Ok(());
         }
-        let request = CLIENT
-            .get(&self.url)
-            .header("User-Agent", USER_AGENT)
-            .send()?
-            .error_for_status()?;
+
+        let request = send_get_request(&self.url)?.error_for_status()?;
         let text = request.text()?;
 
         let parsed = Html::parse_document(&text);
@@ -328,8 +350,6 @@ impl Chapter {
             }
         }
 
-        // Sleep to avoid rate limiting.
-        thread::sleep(Duration::from_millis(200));
         Ok(())
     }
 }
@@ -935,7 +955,7 @@ pub fn download_image(book: &Book, url: &str, filename: &str) -> eyre::Result<Ve
         return Ok(image.into());
     }
 
-    let image = CLIENT.get(url).header("User-Agent", USER_AGENT).send()?;
+    let image = send_get_request(url)?;
 
     if !image.status().is_success() {
         // Ignore failed images.
