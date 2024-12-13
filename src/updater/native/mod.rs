@@ -3,7 +3,6 @@ use std::{collections::HashSet, ffi::OsStr};
 
 use crate::{get_progress_bar, ErrorPrint, MULTI_PROGRESS};
 use ::epub::doc::EpubDoc;
-use cache::Cache;
 use epub::Book;
 use eyre::{eyre, OptionExt, Result};
 
@@ -38,10 +37,9 @@ fn get_book(url: &str, path: Option<&Path>) -> eyre::Result<(Book, UpdateResult)
     let mut fetched_book = Book::new(url)?;
 
     // Check the cache.
-    let mut current_book = Cache::read_book(fetched_book.id)?.unwrap_or_else(|| {
-        path.and_then(|path| Book::from_path(url, path).ok())
-            .unwrap_or_else(|| fetched_book.clone_without_chapters())
-    });
+    let mut current_book = path
+        .and_then(|path| Book::from_path(url, path).ok())
+        .unwrap_or_else(|| fetched_book.clone_without_chapters());
 
     // Determine chapters which already exist but have been updated
     // (same identifier, newer date_published)
@@ -94,7 +92,6 @@ fn get_book(url: &str, path: Option<&Path>) -> eyre::Result<(Book, UpdateResult)
 
     // Update the cover URL and resave to cache.
     current_book.cover_url = fetched_book.cover_url;
-    Cache::write_book(&current_book)?;
 
     Ok((
         current_book,
