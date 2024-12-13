@@ -63,13 +63,12 @@ pub struct Book {
     pub chapters: Vec<Chapter>,
 }
 impl Book {
-    pub fn new(id: u32) -> eyre::Result<Self> {
+    pub fn new(url: &str) -> eyre::Result<Self> {
         // Cover in script tag: window.fictionCover = "...";
         let cover_regex = regex!(r#"window\.fictionCover = "(.*)";"#);
         // Chapters array in script tag: window.chapters = [...];
         let chapters_regex = regex!(r"window\.chapters = (\[.*]);");
 
-        let url = format!("https://www.royalroad.com/fiction/{id}");
         let request = CLIENT
             .get(&url)
             .header("User-Agent", USER_AGENT)
@@ -110,8 +109,8 @@ impl Book {
             .collect();
 
         Ok(Self {
-            id,
-            url,
+            id: Self::get_id_from_url(url)?,
+            url: url.to_string(),
             cover_url: cover,
             title,
             author,
@@ -125,11 +124,11 @@ impl Book {
         })
     }
 
-    pub fn from_path(id: u32, path: &Path) -> eyre::Result<Self> {
+    pub fn from_path(url: &str, path: &Path) -> eyre::Result<Self> {
         let now = chrono::Utc::now();
         let mut epub_doc = EpubDoc::new(path)?;
         let mut book = Self {
-            id,
+            id: Self::get_id_from_url(url)?,
             url: epub_doc.mdata("source").unwrap_or_default(),
             title: epub_doc.mdata("title").unwrap_or_default(),
             author: epub_doc.mdata("creator").unwrap_or_default(),
@@ -236,6 +235,16 @@ impl Book {
             cover_url: self.cover_url.clone(),
             chapters: Vec::new(),
         }
+    }
+
+    fn get_id_from_url(url: &str) -> Result<u32, eyre::Error> {
+        let url = Url::parse(url)?;
+        let id = url
+            .path_segments()
+            .and_then(|mut s| s.nth(1))
+            .and_then(|f| f.parse().ok())
+            .ok_or_else(|| eyre!("Invalid book URL: {url}"))?;
+        Ok(id)
     }
 }
 

@@ -1,13 +1,11 @@
 use std::path::Path;
 use std::{collections::HashSet, ffi::OsStr};
 
+use crate::{get_progress_bar, ErrorPrint, MULTI_PROGRESS};
 use ::epub::doc::EpubDoc;
 use cache::Cache;
 use epub::Book;
 use eyre::{eyre, OptionExt, Result};
-use url::Url;
-
-use crate::{get_progress_bar, ErrorPrint, MULTI_PROGRESS};
 
 use super::{UpdateResult, WebNovel};
 
@@ -23,10 +21,7 @@ impl WebNovel for Native {
         Self {}
     }
     fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<crate::Book> {
-        let url = Url::parse(url)?;
-        let id = get_id_from_url(&url)?;
-
-        let (book, _) = get_book(id, None)?;
+        let (book, _) = get_book(url, None)?;
         let outfile = epub::write(&book, filename.and_then(|f| f.to_str()).map(String::from))?;
 
         let file_path = dir.join(outfile);
@@ -38,13 +33,13 @@ impl WebNovel for Native {
     }
 }
 
-fn get_book(id: u32, path: Option<&Path>) -> eyre::Result<(Book, UpdateResult)> {
+fn get_book(url: &str, path: Option<&Path>) -> eyre::Result<(Book, UpdateResult)> {
     // Do the initial metadata fetch of the book.
-    let mut fetched_book = Book::new(id)?;
+    let mut fetched_book = Book::new(url)?;
 
     // Check the cache.
-    let mut current_book = Cache::read_book(id)?.unwrap_or_else(|| {
-        path.and_then(|path| Book::from_path(id, path).ok())
+    let mut current_book = Cache::read_book(fetched_book.id)?.unwrap_or_else(|| {
+        path.and_then(|path| Book::from_path(url, path).ok())
             .unwrap_or_else(|| fetched_book.clone_without_chapters())
     });
 
@@ -115,19 +110,8 @@ fn do_update(path: &Path) -> eyre::Result<UpdateResult> {
     let url = EpubDoc::new(path)?
         .mdata("source")
         .ok_or_eyre("Could not find url")?;
-    let url = Url::parse(&url)?;
-    let id = get_id_from_url(&url)?;
 
-    let (book, result) = get_book(id, Some(path))?;
+    let (book, result) = get_book(&url, Some(path))?;
     epub::write(&book, path.to_str().map(String::from))?;
     Ok(result)
-}
-
-fn get_id_from_url(url: &Url) -> Result<u32, eyre::Error> {
-    let id = url
-        .path_segments()
-        .and_then(|mut s| s.nth(1))
-        .and_then(|f| f.parse().ok())
-        .ok_or_else(|| eyre!("Invalid book URL: {url}"))?;
-    Ok(id)
 }
