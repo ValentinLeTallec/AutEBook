@@ -95,7 +95,7 @@ fn get_book(id: u32, path: Option<&Path>) -> eyre::Result<(Book, UpdateResult)> 
             };
             bar.inc(1);
         });
-    bar.finish();
+    bar.finish_and_clear();
 
     // Update the cover URL and resave to cache.
     current_book.cover_url = fetched_book.cover_url;

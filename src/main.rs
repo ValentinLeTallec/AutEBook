@@ -147,7 +147,7 @@ fn create_books(dir: &Path, urls: &[String]) {
             Err(e) => bar.println(summary!(e, url, red)),
         }
     });
-    bar.finish();
+    bar.finish_and_clear();
 }
 
 fn update_books(book_files: &[FileToUpdate], stash: bool) {
@@ -175,7 +175,7 @@ fn update_books(book_files: &[FileToUpdate], stash: bool) {
         }
         bar.inc(1);
     });
-    bar.finish();
+    bar.finish_and_clear();
 }
 
 #[must_use]
