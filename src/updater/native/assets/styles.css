@@ -66,15 +66,16 @@ table {
 	max-height: 10rem;
 }
 
-
 .authors-note-start,
 .author-note-portlet {
 	border-bottom: thin solid;
 	padding-bottom: 0.5rem;
+	margin-bottom: 0.5rem;
 }
 
 .authors-note-end,
 .author-note-portlet {
-	padding-top: 0.5rem;
 	border-top: thin solid;
+	padding-top: 0.5rem;
+	margin-top: 0.5rem;
 }
