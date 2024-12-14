@@ -1,9 +1,13 @@
 mod fanficfare;
-use color_eyre::eyre::eyre;
-use color_eyre::Result;
-pub use fanficfare::FanFicFare;
+mod native;
+
+use eyre::{eyre, Error, Result};
 use std::{ffi::OsStr, fs, path::Path};
 use thiserror::Error;
+
+#[cfg(feature = "fanficfare")]
+pub use fanficfare::FanFicFare;
+pub use native::Native;
 
 use crate::book::Book;
 
@@ -14,6 +18,7 @@ pub enum UpdateResult {
     Updated(u16),
     Skipped,
     MoreChapterThanSource(u16),
+    Error(Error),
 }
 
 #[derive(Error, Debug)]

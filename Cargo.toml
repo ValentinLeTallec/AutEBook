@@ -13,21 +13,44 @@ categories = ["command-line-utilities", "filesystem", "text-processing"]
 name = "autebooks"
 path = "src/main.rs"
 
+[features]
+fanficfare = []
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.dev.package."*"]
+opt-level = 3
+
 [dependencies]
-chrono = "0.4.26"
-clap = { version = "4.3.11", features = ["derive"] }
-clap_complete = "4.3.2"
-color-eyre = "0.6.2"
-colorful = "0.2.2"
-epub = "2.1.1"
-indicatif ={ version = "0.17.5", features = ["rayon"]}
-lazy-regex = "3.0.0"
-rayon = "1.7.0"
-rss = "2.0.4"
-serde = { version = "1.0.167", features = ["derive"] }
-serde_json = "1.0.100"
-serde_yaml = "0.9.22"
-thiserror = "1.0.47"
-walkdir = "2.3.3"
+chrono = { version = "0.4.39", features = ["serde"] }
+clap = { version = "4.5.23", features = ["derive"] }
+clap_complete = "4.5.38"
+eyre = "0.6.12"
+colorful = "0.3.2"
+epub = "2.1.2"
+indicatif = { version = "0.17.9", features = ["rayon"] }
+lazy-regex = "3.3.0"
+rayon = "1.10.0"
+serde = { version = "1.0.216", features = ["derive"] }
+serde_json = "1.0.133"
+thiserror = "2.0.7"
+walkdir = "2.5.0"
+lazy_static = "1.5.0"
+derive_more = { version = "1", features = ["debug"] }
+zip = { version = "2.2.1", default-features = false, features = ["deflate"] }
+reqwest = { version = "0.12.9", default-features = false, features = [
+  "brotli",
+  "gzip",
+  "rustls-tls-webpki-roots",
+  "blocking",
+] }
+tempfile = "3.14.0"
+uuid = { version = "1.11.0", features = ["fast-rng", "v4"] }
+scraper = "0.22.0"
+dirs = "5.0.1"
+xml-rs = "0.8.24"
+image = "0.25.5"
+bytes = "1.9.0"
+webp = "0.3.0"
+url = "2.5.4"
+governor = "0.8.0"

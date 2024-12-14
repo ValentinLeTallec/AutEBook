@@ -17,15 +17,19 @@ mod updater;
 use crate::book::Book;
 use crate::updater::UpdateResult;
 use clap::{CommandFactory, Parser, Subcommand};
-use color_eyre::eyre::Result;
 use colorful::Colorful;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use lazy_static::lazy_static;
 use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 const EPUB: &str = "epub";
+
+lazy_static! {
+    pub static ref MULTI_PROGRESS: MultiProgress = MultiProgress::new();
+}
 
 /// A small utility used to obtain and update web novels as e-books.
 /// It currently levrage `FanFicFare` but is extensible to other updaters.
@@ -54,7 +58,7 @@ enum Commands {
         /// List of directories containing books to update
         paths: Vec<PathBuf>,
 
-        /// Stash books which contains more chapters than source in the folder defined in 'stash_dir'
+        /// Stash books which contains more chapters than source in the folder defined in `stash_dir`
         /// and recreate them from source
         #[clap(short, long)]
         stash: bool,
@@ -84,8 +88,7 @@ macro_rules! summary {
     }};
 }
 
-fn main() -> Result<()> {
-    color_eyre::install()?;
+fn main() {
     let args = Args::parse();
     setup_nb_threads(args.nb_threads);
     let work_dir = args.dir;
@@ -116,7 +119,6 @@ fn main() -> Result<()> {
             &mut std::io::stdout(),
         ),
     }
-    Ok(())
 }
 
 fn setup_nb_threads(nb_threads: usize) {
@@ -133,7 +135,7 @@ fn setup_nb_threads(nb_threads: usize) {
 }
 
 fn create_books(dir: &Path, urls: &[String]) {
-    let bar = get_progress_bar(urls.len() as u64);
+    let bar = MULTI_PROGRESS.add(get_progress_bar(urls.len() as u64, 1));
 
     urls.par_iter().for_each(|url| {
         bar.set_prefix(url.clone());
@@ -141,48 +143,75 @@ fn create_books(dir: &Path, urls: &[String]) {
         bar.inc(1);
 
         match creation_res {
-            Ok(book) => bar.println(format!("{:.50}\n", book.name)),
-            Err(e) => eprintln!("{e}"),
+            Ok(book) => bar.println(format!("{:.50}\n", book.title)),
+            Err(e) => bar.println(summary!(e, url, red)),
         }
     });
+    bar.finish_and_clear();
 }
 
 fn update_books(book_files: &[FileToUpdate], stash: bool) {
-    let bar = get_progress_bar(book_files.len() as u64);
+    let bar = MULTI_PROGRESS.add(get_progress_bar(book_files.len() as u64, 1));
 
     book_files.par_iter().for_each(|file_to_update| {
-        let book = Book::new(file_to_update.file_path.path());
-        bar.set_prefix(book.name.clone());
+        let path = file_to_update.file_path.path();
+        let book = Book::new(path);
+        bar.set_prefix(book.title.clone());
 
-        match book.update() {
-            UpdateResult::Updated(n) => bar.println(summary!(n, book.name, green)),
-            UpdateResult::Skipped => bar.println(summary!("Skip", book.name, blue)),
+        match book.update(path) {
+            UpdateResult::Updated(n) => bar.println(summary!(n, book.title, green)),
+            UpdateResult::Skipped => bar.println(summary!("Skip", book.title, blue)),
             UpdateResult::MoreChapterThanSource(n) => {
-                bar.println(summary!(-i32::from(n), book.name, red));
+                bar.println(summary!(-i32::from(n), book.title, red));
                 if stash {
-                    match book.stash_and_recreate(&file_to_update.stash_path) {
-                        Ok(book) => bar.println(summary!("New", book.name, light_green)),
+                    match book.stash_and_recreate(path, &file_to_update.stash_path) {
+                        Ok(book) => bar.println(summary!("New", book.title, light_green)),
                         Err(e) => eprintln!("{e}"),
                     }
                 }
             }
             UpdateResult::Unsupported | UpdateResult::UpToDate => (),
+            UpdateResult::Error(e) => bar.eprintln(&e.to_string()),
         }
         bar.inc(1);
     });
+    bar.finish_and_clear();
 }
 
-fn get_progress_bar(len: u64) -> ProgressBar {
-    let bar = ProgressBar::new(len);
-    let template_progress = ProgressStyle::with_template(
-        "\n{prefix}\n[{elapsed}/{duration}] {wide_bar} {pos:>3}/{len:3} ({percent}%)\n{msg}",
-    )
+#[must_use]
+pub fn get_progress_bar(len: u64, show_if_more_than: u64) -> ProgressBar {
+    let show = show_if_more_than < len;
+
+    let bar = if show {
+        ProgressBar::new(len)
+    } else {
+        ProgressBar::hidden()
+    };
+    let template_progress = ProgressStyle::with_template(if show {
+        "\n{prefix}\n[{elapsed}/{duration}] {wide_bar} {pos:>3}/{len:3} ({percent}%)\n{msg}"
+    } else {
+        ""
+    })
     .unwrap_or_else(|err| {
         eprintln!("{err}");
         ProgressStyle::default_bar()
     });
     bar.set_style(template_progress);
     bar
+}
+
+pub trait ErrorPrint {
+    fn eprintln(&self, msg: &str);
+}
+impl ErrorPrint for ProgressBar {
+    fn eprintln(&self, msg: &str) {
+        self.suspend(|| eprintln!("{}", msg.red()));
+    }
+}
+impl ErrorPrint for MultiProgress {
+    fn eprintln(&self, msg: &str) {
+        self.suspend(|| eprintln!("{}", msg.red()));
+    }
 }
 
 fn get_book_files(path: &PathBuf, stash_dir: &PathBuf) -> Vec<FileToUpdate> {

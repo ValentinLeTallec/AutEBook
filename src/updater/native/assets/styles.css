@@ -1,0 +1,81 @@
+body {
+	adobe-hyphenate: none;
+}
+
+table {
+	color: #585858;
+	margin-left: 5%;
+	font-size: smaller;
+}
+
+h1,
+h2,
+h3 {
+	text-align: center;
+	font-size: 2em;
+	page-break-before: always;
+	margin-bottom: 10%;
+	margin-top: 10%;
+}
+
+h4,
+h5,
+h6 {
+	text-align: center;
+	margin-bottom: 15%;
+	margin-top: 10%;
+}
+
+.cover {
+	text-align: center;
+}
+
+td {
+	padding: 0.5em;
+}
+
+table {
+	border: 1px solid;
+	border-collapse: collapse;
+}
+
+.author-note-portlet,
+.authors-note-start,
+.authors-note-end {
+	margin-left: 1rem;
+	margin-right: 1rem;
+	font-style: italic;
+	font-size: 0.8em;
+	border-collapse: collapse;
+}
+
+.chapter-content img {
+	padding: 1rem 5%;
+	max-width: 90%;
+	max-height: 90%;
+	text-align: center;
+	margin: auto;
+	display: block;
+
+}
+
+.authors-note-start img,
+.authors-note-end img,
+.author-note-portlet img {
+	max-width: 10rem;
+	max-height: 10rem;
+}
+
+.authors-note-start,
+.author-note-portlet {
+	border-bottom: thin solid;
+	padding-bottom: 0.5rem;
+	margin-bottom: 0.5rem;
+}
+
+.authors-note-end,
+.author-note-portlet {
+	border-top: thin solid;
+	padding-top: 0.5rem;
+	margin-top: 0.5rem;
+}
