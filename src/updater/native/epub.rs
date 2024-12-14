@@ -368,7 +368,6 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
         .path()
         .join(Uuid::new_v4().to_string())
         .with_extension("epub");
-    tracing::debug!("Writing epub to {:?}", epub_path);
     let file = std::fs::File::create(&epub_path)?;
     let mut epub_file = zip::ZipWriter::new(file);
 
@@ -419,7 +418,7 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
         let mut filename = match image::extract_file_name(url) {
             Ok(f) => f,
             Err(e) => {
-                tracing::error!("{e} (URL : {url})");
+                MULTI_PROGRESS.eprintln(&format!("{e} (URL : {url})"));
                 continue;
             }
         };
@@ -439,7 +438,7 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
 
                 image_filenames.insert(filename);
             }
-            Err(err) => tracing::warn!("{}", err),
+            Err(err) => MULTI_PROGRESS.eprintln(&err.to_string()),
         }
     }
 
@@ -457,10 +456,8 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
 
     // Finish and copy to user destination.
     epub_file.finish()?;
-    tracing::debug!("Copying epub from {:?} to {:?}", epub_path, outfile);
     std::fs::copy(epub_path, &outfile)?;
 
-    tracing::info!("Wrote EPUB to {:?}", outfile);
     Ok(outfile)
 }
 
@@ -1044,7 +1041,6 @@ pub fn download_image(book: &Book, url: &str, filename: &str) -> eyre::Result<Ve
         );
     }
 
-    tracing::info!("Downloaded inline image '{}'.", url);
     let buffer = image::resize(image.bytes()?).map_err(|err| eyre!("{err} URL: {url}"))?;
 
     // Save the image in the cache.
