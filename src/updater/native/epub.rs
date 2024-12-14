@@ -22,6 +22,7 @@ use url::Url;
 use uuid::Uuid;
 use xml::writer::XmlEvent;
 use xml::EmitterConfig;
+use zip::write::SimpleFileOptions;
 
 const USER_AGENT: &str = "rr-to-epub <https://github.com/isaac-mcfadyen/rr-to-epub>";
 pub const FORBIDDEN_CHARACTERS: [char; 13] = [
@@ -371,23 +372,25 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
     let file = std::fs::File::create(&epub_path)?;
     let mut epub_file = zip::ZipWriter::new(file);
 
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
     // Write the mimetype.
-    epub_file.start_file("mimetype", zip::write::FileOptions::default())?;
+    epub_file.start_file("mimetype", options)?;
     epub_file.write_all(b"application/epub+zip")?;
 
     // Write the META-INF folder.
-    epub_file.add_directory("META-INF", zip::write::FileOptions::default())?;
+    epub_file.add_directory("META-INF", options)?;
 
     // Write the container.xml file.
-    epub_file.start_file("META-INF/container.xml", zip::write::FileOptions::default())?;
+    epub_file.start_file("META-INF/container.xml", options)?;
     container_xml(book, &mut epub_file)?;
 
     // Write the table of contents for Epub v2 (toc.ncx).
-    epub_file.start_file("OEBPS/toc.ncx", zip::write::FileOptions::default())?;
+    epub_file.start_file("OEBPS/toc.ncx", options)?;
     toc_ncx(book, &mut epub_file)?;
 
     // Write the table of contents for Epub v3 (nav.xhtml).
-    epub_file.start_file("OEBPS/nav.xhtml", zip::write::FileOptions::default())?;
+    epub_file.start_file("OEBPS/nav.xhtml", options)?;
     toc_nav(book, &mut epub_file)?;
 
     // Store image urls
@@ -398,10 +401,7 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
     // Write each chapter.
     for chapter in &book.chapters {
         // Write the chapter file.
-        epub_file.start_file(
-            format!("OEBPS/text/{}.xhtml", chapter.identifier),
-            zip::write::FileOptions::default(),
-        )?;
+        epub_file.start_file(format!("OEBPS/text/{}.xhtml", chapter.identifier), options)?;
         chapter_html(chapter, &mut epub_file)?;
 
         // Find each inline image in the content, as well as Author's Notes.
@@ -434,10 +434,7 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
         match download_image(book, url, &filename) {
             Ok(buffer) => {
                 // Write the image to the file.
-                epub_file.start_file(
-                    format!("OEBPS/images/{filename}"),
-                    zip::write::FileOptions::default(),
-                )?;
+                epub_file.start_file(format!("OEBPS/images/{filename}"), options)?;
                 epub_file.write_all(&buffer)?;
 
                 image_filenames.insert(filename);
@@ -447,18 +444,15 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
     }
 
     // Write the title page.
-    epub_file.start_file("OEBPS/text/title.xhtml", zip::write::FileOptions::default())?;
+    epub_file.start_file("OEBPS/text/title.xhtml", options)?;
     title_html(book, &mut epub_file)?;
 
     // Write the content.opf file.
-    epub_file.start_file("OEBPS/content.opf", zip::write::FileOptions::default())?;
+    epub_file.start_file("OEBPS/content.opf", options)?;
     content_opf(book, &image_filenames, &mut epub_file)?;
 
     // Write the stylesheet.
-    epub_file.start_file(
-        "OEBPS/styles/stylesheet.css",
-        zip::write::FileOptions::default(),
-    )?;
+    epub_file.start_file("OEBPS/styles/stylesheet.css", options)?;
     stylesheet(&mut epub_file)?;
 
     // Finish and copy to user destination.

@@ -1,7 +1,7 @@
 use eyre::{bail, eyre};
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
-use image::io::Reader;
+use image::ImageReader;
 use lazy_static::lazy_static;
 use scraper::{Html, Selector};
 use std::io::Cursor;
@@ -155,7 +155,7 @@ impl ResizableImageFormat {
                 .decode()
                 .ok_or_else(|| eyre!("Image is not a valid WebP"))?
                 .to_image(),
-            Self::Png | Self::Jpeg => Reader::new(Cursor::new(&bytes))
+            Self::Png | Self::Jpeg => ImageReader::new(Cursor::new(&bytes))
                 .with_guessed_format()?
                 .decode()?,
         };
