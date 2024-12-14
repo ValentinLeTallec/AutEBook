@@ -382,9 +382,13 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
     epub_file.start_file("META-INF/container.xml", zip::write::FileOptions::default())?;
     container_xml(book, &mut epub_file)?;
 
-    // Write the table of contents (toc.ncx) file.
+    // Write the table of contents for Epub v2 (toc.ncx).
     epub_file.start_file("OEBPS/toc.ncx", zip::write::FileOptions::default())?;
     toc_ncx(book, &mut epub_file)?;
+
+    // Write the table of contents for Epub v3 (nav.xhtml).
+    epub_file.start_file("OEBPS/nav.xhtml", zip::write::FileOptions::default())?;
+    toc_nav(book, &mut epub_file)?;
 
     // Store image urls
     let mut images: HashSet<String> = HashSet::new();
@@ -786,6 +790,14 @@ fn content_opf(
                 .attr("media-type", "application/xhtml+xml")
                 .into(),
             XmlEvent::end_element().into(),
+            // Write the nav table.
+            XmlEvent::start_element("item")
+                .attr("id", "nav")
+                .attr("href", "nav.xhtml")
+                .attr("media-type", "application/xhtml+xml")
+                .attr("properties", "nav")
+                .into(),
+            XmlEvent::end_element().into(),
         ],
     )?;
 
@@ -849,6 +861,79 @@ fn content_opf(
     write_elements(
         &mut xml,
         vec![
+            XmlEvent::end_element().into(),
+            XmlEvent::end_element().into(),
+        ],
+    )?;
+
+    Ok(())
+}
+
+fn toc_nav(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
+    let mut xml = EmitterConfig::new().perform_indent(true);
+    xml.perform_escaping = false;
+    let mut xml = xml.create_writer(file);
+
+    #[rustfmt::skip]
+    write_elements(
+        &mut xml,
+        vec![
+            XmlEvent::characters("\n<!DOCTYPE html>\n"),
+            XmlEvent::start_element("html")
+                .ns("", "http://www.w3.org/1999/xhtml")
+                .attr("xmlns:epub", "http://www.idpf.org/2007/ops")
+                .attr("lang", "en")
+                .attr("xml:lang", "en")
+                .into(),
+
+            XmlEvent::start_element("head").into(),
+                XmlEvent::start_element("title").into(),
+                    XmlEvent::characters("ePub NAV"),
+                XmlEvent::end_element().into(),
+
+                XmlEvent::start_element("meta")
+                    .attr("charset", "utf-8")
+                    .into(),
+                XmlEvent::end_element().into(),
+            XmlEvent::end_element().into(),
+
+            XmlEvent::start_element("body")
+                .attr("epub:type", "frontmatter")
+                .into(),
+
+                XmlEvent::start_element("nav")
+                    .attr("epub:type","toc")
+                    .attr( "id","toc")
+                    .attr( "role","doc-toc")
+                    .into(),
+                    XmlEvent::start_element("h1").into(),
+                        XmlEvent::characters("Table of Contents"),
+                    XmlEvent::end_element().into(),
+
+                    XmlEvent::start_element("ol").into(),
+        ],
+    )?;
+
+    // Write each chapter.
+    for chapter in &book.chapters {
+        write_elements(
+            &mut xml,
+            vec![
+                XmlEvent::start_element("li").into(),
+                XmlEvent::start_element("a")
+                    .attr("href", &format!("text/{}.xhtml", &chapter.identifier))
+                    .into(),
+                XmlEvent::characters(&chapter.title),
+                XmlEvent::end_element().into(),
+                XmlEvent::end_element().into(),
+            ],
+        )?;
+    }
+    write_elements(
+        &mut xml,
+        vec![
+            XmlEvent::end_element().into(),
+            XmlEvent::end_element().into(),
             XmlEvent::end_element().into(),
             XmlEvent::end_element().into(),
         ],
