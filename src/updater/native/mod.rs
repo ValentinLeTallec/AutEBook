@@ -109,6 +109,8 @@ fn do_update(path: &Path) -> eyre::Result<UpdateResult> {
         .ok_or_eyre("Could not find url")?;
 
     let (book, result) = get_book(&url, Some(path))?;
-    epub::write(&book, path.to_str().map(String::from))?;
+    if let UpdateResult::Updated(_) = result {
+        epub::write(&book, path.to_str().map(String::from))?;
+    }
     Ok(result)
 }
