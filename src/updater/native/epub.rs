@@ -104,7 +104,7 @@ pub struct Book {
     pub chapters: Vec<Chapter>,
 }
 impl Book {
-    pub fn fetch_without_chapter_content(url: &str) -> eyre::Result<Self> {
+    pub fn fetch_without_chapter_content(url: &str) -> Result<Self> {
         // Cover in script tag: window.fictionCover = "...";
         let cover_regex = regex!(r#"window\.fictionCover = "(.*)";"#);
         // Chapters array in script tag: window.chapters = [...];
@@ -337,7 +337,7 @@ impl Chapter {
         }
     }
 
-    pub fn update_chapter_content(&mut self) -> eyre::Result<()> {
+    pub fn update_chapter_content(&mut self) -> Result<()> {
         if self.content.is_some() {
             return Ok(());
         }
@@ -437,7 +437,7 @@ impl QuickSelect for Html {
     }
 }
 
-pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
+pub fn write(book: &Book, outfile: Option<String>) -> Result<String> {
     // Create a temp dir.
     let temp_folder = tempfile::tempdir()?;
 
@@ -543,12 +543,12 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
     Ok(outfile)
 }
 
-fn stylesheet(file: &mut impl Write) -> eyre::Result<()> {
+fn stylesheet(file: &mut impl Write) -> Result<()> {
     file.write_all(include_bytes!("./assets/styles.css"))?;
     Ok(())
 }
 
-fn title_html(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
+fn title_html(book: &Book, file: &mut impl Write) -> Result<()> {
     let mut xml = EmitterConfig::new().perform_indent(true);
     xml.perform_escaping = false;
     let mut xml = xml.create_writer(file);
@@ -601,7 +601,7 @@ fn title_html(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
     Ok(())
 }
 
-fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
+fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> Result<()> {
     let mut xml = EmitterConfig::new().perform_indent(true);
     xml.perform_escaping = false;
     let mut xml = xml.create_writer(file);
@@ -754,7 +754,7 @@ fn clean_html(original_content: &str) -> String {
     content
 }
 
-fn container_xml(_: &Book, file: &mut impl Write) -> eyre::Result<()> {
+fn container_xml(_: &Book, file: &mut impl Write) -> Result<()> {
     let mut xml = EmitterConfig::new()
         .perform_indent(true)
         .create_writer(file);
@@ -784,7 +784,7 @@ fn content_opf(
     book: &Book,
     image_filenames: &HashSet<String>,
     file: &mut impl Write,
-) -> eyre::Result<()> {
+) -> Result<()> {
     let mut xml = EmitterConfig::new()
         .perform_indent(true)
         .create_writer(file);
@@ -940,7 +940,7 @@ fn content_opf(
     Ok(())
 }
 
-fn toc_nav(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
+fn toc_nav(book: &Book, file: &mut impl Write) -> Result<()> {
     let mut xml = EmitterConfig::new().perform_indent(true);
     xml.perform_escaping = false;
     let mut xml = xml.create_writer(file);
@@ -1013,7 +1013,7 @@ fn toc_nav(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
     Ok(())
 }
 
-fn toc_ncx(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
+fn toc_ncx(book: &Book, file: &mut impl Write) -> Result<()> {
     let mut xml = EmitterConfig::new()
         .perform_indent(true)
         .create_writer(file);
@@ -1105,7 +1105,7 @@ fn toc_ncx(book: &Book, file: &mut impl Write) -> eyre::Result<()> {
     Ok(())
 }
 
-pub fn download_image(book: &Book, url: &str, filename: &str) -> eyre::Result<Vec<u8>> {
+pub fn download_image(book: &Book, url: &str, filename: &str) -> Result<Vec<u8>> {
     // If the image is in the cache, directly use it.
     if let Some(image) = Cache::read_inline_image(book, filename)? {
         return Ok(image.into());

@@ -40,7 +40,7 @@ impl Download for epub::Book {
     }
 }
 
-fn get_book(url: &str, path: Option<&Path>) -> eyre::Result<(Book, UpdateResult)> {
+fn get_book(url: &str, path: Option<&Path>) -> Result<(Book, UpdateResult)> {
     // Do the initial metadata fetch of the book.
     let mut fetched_book = Book::fetch_without_chapter_content(url)?;
 
@@ -112,7 +112,7 @@ fn get_book(url: &str, path: Option<&Path>) -> eyre::Result<(Book, UpdateResult)
     ))
 }
 
-fn do_update(path: &Path) -> eyre::Result<UpdateResult> {
+fn do_update(path: &Path) -> Result<UpdateResult> {
     let url = EpubDoc::new(path)?
         .mdata("source")
         .ok_or_eyre("Could not find url")?;

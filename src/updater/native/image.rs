@@ -1,4 +1,4 @@
-use eyre::{bail, eyre};
+use eyre::{bail, eyre, Result};
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
 use image::ImageReader;
@@ -14,7 +14,7 @@ lazy_static! {
     static ref IMAGE_SELECTOR: Selector = compile_time_selector("img");
 }
 
-pub fn extract_file_name(url: &str) -> eyre::Result<String> {
+pub fn extract_file_name(url: &str) -> Result<String> {
     extract_file_name_from_url(url)
         .or_else(|| extract_file_name_from_path(url))
         .ok_or_else(|| eyre!("{url} is neither an url nor a path"))
@@ -63,7 +63,7 @@ pub fn replace_url_with_path(mut body: String) -> String {
     body
 }
 
-pub fn resize(bytes: bytes::Bytes) -> eyre::Result<Vec<u8>> {
+pub fn resize(bytes: bytes::Bytes) -> Result<Vec<u8>> {
     let managed_image_format = ManagedImageFormat::new(&bytes).ok_or_else(|| {
         eyre!("Unsupported inline image format. Please report this as a bug and include the link.")
     })?;
@@ -165,7 +165,7 @@ impl ManagedImageFormat {
 
 impl ResizableImageFormat {
     /// Resize the image to max width of 600px and re-encode WebP to PNG.
-    pub fn rezise(&self, bytes: &bytes::Bytes) -> eyre::Result<Vec<u8>> {
+    pub fn rezise(&self, bytes: &bytes::Bytes) -> Result<Vec<u8>> {
         let image = match self {
             Self::Webp => Decoder::new(bytes)
                 .decode()
