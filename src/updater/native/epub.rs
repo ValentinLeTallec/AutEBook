@@ -342,7 +342,9 @@ impl Chapter {
         let request = send_get_request(&self.url)?.error_for_status()?;
         let text = request.text()?;
 
-        let parsed = Html::parse_document(&text);
+        let mut parsed = Html::parse_document(&text);
+
+        remove_royal_road_warnings(&mut parsed);
 
         // Parse content.
         let content = parsed
@@ -396,6 +398,22 @@ fn extract_from_fanficfare_generated_chapter(
                 .map_or(e.clone(), |note| e.replace(note, ""))
         });
     (content, authors_note_start, authors_note_end)
+}
+
+/// Remove royalroad warnings
+/// Please don't use this tool to re-publish authors' works without their permission.
+fn remove_royal_road_warnings(parsed: &mut Html) {
+    let bad_paragraphs = parsed
+        .select(&WATERMARK_SELECTOR)
+        .filter(|e| e.inner_html().len() < 200)
+        .map(|e| e.id())
+        .collect::<Vec<_>>();
+
+    for id in bad_paragraphs {
+        if let Some(mut node) = parsed.tree.get_mut(id) {
+            node.detach();
+        }
+    }
 }
 
 trait QuickSelect {
@@ -659,13 +677,6 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
     // Write the content.
     if let Some(mut content) = chapter.content.clone() {
         content = clean_html(&content);
-
-        // Remove any "stolen from Amazon" messages.
-        // Please don't use this tool to re-publish authors' works without their permission.
-        let messages = include_str!("./assets/messages.txt");
-        for message in messages.split('\n') {
-            content = content.replace(message, "");
-        }
 
         write_elements(
             &mut xml,
