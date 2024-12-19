@@ -89,9 +89,10 @@ fn get_book(url: &str, path: Option<&Path>) -> eyre::Result<(Book, UpdateResult)
         .filter(|c| chapter_to_update_ids.contains(&c.identifier))
         .for_each(|chapter| {
             if let Err(e) = chapter.update_chapter_content() {
-                bar.eprintln(&format!(
+                bar.eprintln(&eyre!(
                     "Could not download chapter '{}' : {}",
-                    chapter.title, e
+                    chapter.title,
+                    e
                 ));
             };
             bar.inc(1);

@@ -5,7 +5,7 @@ use crate::{ErrorPrint, MULTI_PROGRESS};
 use chrono::{DateTime, Utc};
 use derive_more::derive::Debug;
 use epub::doc::EpubDoc;
-use eyre::{bail, eyre};
+use eyre::{bail, eyre, Result};
 use governor::{DefaultKeyedRateLimiter, Jitter, Quota, RateLimiter};
 use lazy_regex::regex;
 use lazy_static::lazy_static;
@@ -35,7 +35,7 @@ pub fn compile_time_selector(selector: &str) -> scraper::Selector {
     Selector::parse(selector).unwrap()
 }
 
-pub fn send_get_request(url: &str) -> std::result::Result<Response, reqwest::Error> {
+pub fn send_get_request(url: &str) -> Result<Response> {
     static CLIENT_CELL: OnceLock<Client> = OnceLock::new();
     static RATE_LIMITER_CELL: OnceLock<DefaultKeyedRateLimiter<String>> = OnceLock::new();
 
@@ -48,8 +48,9 @@ pub fn send_get_request(url: &str) -> std::result::Result<Response, reqwest::Err
     });
 
     let host = Url::parse(url)
-        .ok()
-        .and_then(|u| u.host().map(|h| h.to_string()))
+        .map_err(|e| eyre!("{e} (URL: {url})"))?
+        .host()
+        .map(|h| h.to_string())
         .unwrap_or_default();
 
     while rate_limiter.check_key(&host).is_err() {
@@ -61,6 +62,7 @@ pub fn send_get_request(url: &str) -> std::result::Result<Response, reqwest::Err
         .get(url)
         .header("User-Agent", USER_AGENT)
         .send()
+        .map_err(|e| eyre!("{e} (URL: {url})"))
 }
 
 lazy_static! {
@@ -190,7 +192,7 @@ impl Book {
             .filter_map(|(id, filename)| epub_doc.get_resource(id).map(|(i, _)| (filename, i)))
             .for_each(|(filename, image)| {
                 if let Err(e) = Cache::write_inline_image(&book, filename, &image) {
-                    MULTI_PROGRESS.eprintln(&format!("{e}"));
+                    MULTI_PROGRESS.eprintln(&e);
                 };
             });
 
@@ -498,7 +500,7 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
         let mut filename = match image::extract_file_name(url) {
             Ok(f) => f,
             Err(e) => {
-                MULTI_PROGRESS.eprintln(&format!("{e} (URL : {url})"));
+                MULTI_PROGRESS.eprintln(&eyre!("{e} (URL : {url})"));
                 continue;
             }
         };
@@ -518,7 +520,7 @@ pub fn write(book: &Book, outfile: Option<String>) -> eyre::Result<String> {
 
                 image_filenames.insert(filename);
             }
-            Err(err) => MULTI_PROGRESS.eprintln(&err.to_string()),
+            Err(err) => MULTI_PROGRESS.eprintln(&err),
         }
     }
 

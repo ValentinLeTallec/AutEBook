@@ -16,6 +16,7 @@ mod updater;
 use crate::updater::UpdateResult;
 use clap::{CommandFactory, Parser, Subcommand};
 use colorful::Colorful;
+use eyre::Error;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
 use rayon::prelude::*;
@@ -169,7 +170,7 @@ fn update_books(book_files: &[FileToUpdate], stash: bool) {
                 }
             }
             UpdateResult::Unsupported | UpdateResult::UpToDate => (),
-            UpdateResult::Error(e) => bar.eprintln(&e.to_string()),
+            UpdateResult::Error(e) => bar.eprintln(&e),
         }
         bar.inc(1);
     });
@@ -199,16 +200,18 @@ pub fn get_progress_bar(len: u64, show_if_more_than: u64) -> ProgressBar {
 }
 
 pub trait ErrorPrint {
-    fn eprintln(&self, msg: &str);
+    fn eprintln(&self, msg: &Error);
 }
 impl ErrorPrint for ProgressBar {
-    fn eprintln(&self, msg: &str) {
-        self.suspend(|| eprintln!("{}", msg.red()));
+    fn eprintln(&self, msg: &Error) {
+        let msg = format!("{msg:}").red();
+        self.suspend(|| eprintln!("{msg}"));
     }
 }
 impl ErrorPrint for MultiProgress {
-    fn eprintln(&self, msg: &str) {
-        self.suspend(|| eprintln!("{}", msg.red()));
+    fn eprintln(&self, msg: &Error) {
+        let msg = format!("{msg:}").red();
+        self.suspend(|| eprintln!("{msg}"));
     }
 }
 
