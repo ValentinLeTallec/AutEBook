@@ -74,14 +74,22 @@ lazy_static! {
     static ref TITLE_SELECTOR : Selector = compile_time_selector("h1");
     static ref AUTHOR_SELECTOR : Selector = compile_time_selector("h4 a");
     static ref DESCRIPTION_SELECTOR : Selector = compile_time_selector(".description > .hidden-content");
+    static ref WATERMARK_SELECTOR : Selector = compile_time_selector("[class^=cj],[class^=cm]");
 
     static ref TITLE_ELEMENT_SELECTOR : Selector = compile_time_selector("title");
     static ref BODY_ELEMENT_SELECTOR : Selector = compile_time_selector("body");
-    static ref META_CHAPTER_URL_SELECTOR : Selector = compile_time_selector("meta[name=chapterurl]");
-    static ref META_CHAPTER_DATE_PUBLISHED_SELECTOR : Selector = compile_time_selector("meta[name=published]");
+
+    static ref EPUB_META_CHAPTER_URL_SELECTOR : Selector = compile_time_selector("meta[name=chapterurl]");
+    static ref EPUB_META_DATE_PUBLISHED_SELECTOR : Selector = compile_time_selector("meta[name=published]");
+    static ref EPUB_META_GENERATOR_SELECTOR : Selector = compile_time_selector("meta[name=generator]");
+
+    static ref EPUB_CHAPTER_CONTENT_SELECTOR : Selector = compile_time_selector(".chapter-content");
+    static ref EPUB_AUTHORS_NOTE_START_SELECTOR: Selector = compile_time_selector(".authors-note-start");
+    static ref EPUB_AUTHORS_NOTE_END_SELECTOR: Selector = compile_time_selector(".authors-note-end");
+    static ref EPUB_FANFICFARE_AUTHORS_NOTE_SELECTOR: Selector = compile_time_selector(".author-note-portlet");
 }
 
-#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug)]
 pub struct Book {
     pub id: u32,
     pub url: String,
@@ -186,10 +194,12 @@ impl Book {
             });
 
         while epub_doc.go_next() {
-            if epub_doc
+            let identifier = epub_doc
                 .get_current_id()
-                .is_some_and(|id| id == "nav.xhtml")
-            {
+                .map(|s| s.replace(".xhtml", ""))
+                .unwrap_or_default();
+
+            if identifier == "nav" {
                 continue;
             }
 
@@ -198,59 +208,8 @@ impl Book {
                 .map(|(content, _mime)| content)
                 .unwrap_or_default();
 
-            let parsed = Html::parse_document(&xhtml);
-
-            let title = parsed
-                .select(&TITLE_ELEMENT_SELECTOR)
-                .next()
-                .map(|e| e.inner_html())
-                .unwrap_or_default();
-
-            let content = parsed
-                .select(&BODY_ELEMENT_SELECTOR)
-                .next()
-                .map(|e| e.inner_html())
-                .map(|e| e.replace(&format!("<h3 class=\"fff_chapter_title\">{title}</h3>"), ""))
-                .map(|e| e.replace(&format!("<h1 class=\"chapter-title\">{title}</h1>"), ""));
-
-            let url = parsed
-                .select(&META_CHAPTER_URL_SELECTOR)
-                .next()
-                .and_then(|e| e.attr("content"))
-                .map(ToString::to_string)
-                .unwrap_or_default();
-
-            let date_published = parsed
-                .select(&META_CHAPTER_DATE_PUBLISHED_SELECTOR)
-                .next()
-                .and_then(|e| e.attr("content"))
-                .and_then(|d| DateTime::parse_from_rfc3339(d).ok())
-                .unwrap_or_else(|| now.into())
-                .into();
-
-            let identifier: String = Url::parse(&url)
-                .ok()
-                .and_then(|url| {
-                    url.path_segments()
-                        .and_then(|mut x| x.nth(4).map(ToString::to_string))
-                })
-                .unwrap_or_else(|| {
-                    epub_doc
-                        .get_current_id()
-                        .map(|s| s.replace(".xhtml", ""))
-                        .unwrap_or_default()
-                })
-                .to_string();
-
-            book.chapters.push(Chapter {
-                identifier,
-                date_published,
-                title,
-                url,
-                content,
-                authors_note_start: None,
-                authors_note_end: None,
-            });
+            book.chapters
+                .push(Chapter::extract_from_epub(&identifier, &xhtml, now));
         }
         Ok(book)
     }
@@ -301,7 +260,7 @@ impl RoyalRoadChapter {
     }
 }
 
-#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug)]
 pub struct Chapter {
     pub identifier: String,
     pub date_published: DateTime<Utc>,
@@ -323,6 +282,58 @@ impl PartialEq for Chapter {
 }
 impl Eq for Chapter {}
 impl Chapter {
+    pub fn extract_from_epub(identifier: &str, xhtml: &str, now: DateTime<Utc>) -> Self {
+        let parsed = Html::parse_document(xhtml);
+
+        let title = parsed
+            .select(&TITLE_ELEMENT_SELECTOR)
+            .next()
+            .map(|e| e.inner_html())
+            .unwrap_or_default();
+
+        let url = parsed
+            .get_meta_content_of(&EPUB_META_CHAPTER_URL_SELECTOR)
+            .unwrap_or_default();
+
+        let date_published = parsed
+            .get_meta_content_of(&EPUB_META_DATE_PUBLISHED_SELECTOR)
+            .and_then(|d| DateTime::parse_from_rfc3339(&d).ok())
+            .unwrap_or_else(|| now.into())
+            .into();
+
+        let identifier: String = Url::parse(&url)
+            .ok()
+            .and_then(|url| {
+                url.path_segments()
+                    .and_then(|mut x| x.nth(4).map(ToString::to_string))
+            })
+            .unwrap_or_else(|| identifier.to_string());
+
+        let was_generated_with_native_updater = parsed
+            .get_meta_content_of(&EPUB_META_GENERATOR_SELECTOR)
+            .is_some_and(|e| e == "autebook");
+
+        let (content, authors_note_start, authors_note_end) = if was_generated_with_native_updater {
+            (
+                parsed.get_inner_html_of(&EPUB_CHAPTER_CONTENT_SELECTOR),
+                parsed.get_inner_html_of(&EPUB_AUTHORS_NOTE_START_SELECTOR),
+                parsed.get_inner_html_of(&EPUB_AUTHORS_NOTE_END_SELECTOR),
+            )
+        } else {
+            extract_from_fanficfare_generated_chapter(&parsed, &title)
+        };
+
+        Self {
+            identifier,
+            date_published,
+            title,
+            url,
+            content,
+            authors_note_start,
+            authors_note_end,
+        }
+    }
+
     pub fn update_chapter_content(&mut self) -> eyre::Result<()> {
         if self.content.is_some() {
             return Ok(());
@@ -357,6 +368,51 @@ impl Chapter {
         }
 
         Ok(())
+    }
+}
+
+/// This fonction allows us to have a compatibility layer over chapters generated by Fanficfare
+/// returns `(content, authors_note_start, authors_note_end)`
+fn extract_from_fanficfare_generated_chapter(
+    parsed: &Html,
+    title: &str,
+) -> (Option<String>, Option<String>, Option<String>) {
+    let mut notes_iter = parsed.select(&EPUB_FANFICFARE_AUTHORS_NOTE_SELECTOR).rev();
+    // To simplify processing if there is only one note, we put it at the end
+    let authors_note_end = notes_iter.next().map(|e| e.inner_html());
+    let authors_note_start = notes_iter.next().map(|e| e.inner_html());
+
+    let content = parsed
+        .get_inner_html_of(&BODY_ELEMENT_SELECTOR)
+        .map(|e| e.replace(&format!("<h3 class=\"fff_chapter_title\">{title}</h3>"), ""))
+        .map(|e| {
+            authors_note_start
+                .as_ref()
+                .map_or(e.clone(), |note| e.replace(note, ""))
+        })
+        .map(|e| {
+            authors_note_end
+                .as_ref()
+                .map_or(e.clone(), |note| e.replace(note, ""))
+        });
+    (content, authors_note_start, authors_note_end)
+}
+
+trait QuickSelect {
+    fn get_inner_html_of(&self, selector: &Selector) -> Option<String>;
+    fn get_meta_content_of(&self, selector: &Selector) -> Option<String>;
+}
+impl QuickSelect for Html {
+    fn get_inner_html_of(&self, selector: &Selector) -> Option<String> {
+        self.select(selector)
+            .next()
+            .map(|element| element.inner_html())
+    }
+    fn get_meta_content_of(&self, selector: &Selector) -> Option<String> {
+        self.select(selector)
+            .next()
+            .and_then(|e| e.attr("content"))
+            .map(ToString::to_string)
     }
 }
 
@@ -545,8 +601,14 @@ fn chapter_html(chapter: &Chapter, file: &mut impl Write) -> eyre::Result<()> {
                     XmlEvent::end_element().into(),
 
                     XmlEvent::start_element("meta")
+                        .attr("name", "charset")
+                        .attr("content", "UTF-8")
+                        .into(),
+                    XmlEvent::end_element().into(),
+
+                    XmlEvent::start_element("meta")
                         .attr("name", "generator")
-                        .attr("content", "text/html; charset=UTF-8")
+                        .attr("content", "autebook")
                         .into(),
                     XmlEvent::end_element().into(),
 
