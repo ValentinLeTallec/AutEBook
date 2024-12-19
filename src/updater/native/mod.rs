@@ -99,6 +99,9 @@ fn get_book(url: &str, path: Option<&Path>) -> Result<(Book, UpdateResult)> {
         });
     bar.finish_and_clear();
 
+    // Remove empty chapters
+    current_book.chapters.retain(|c| c.content.is_some());
+
     // Update the cover URL and resave to cache.
     current_book.cover_url = fetched_book.cover_url;
 
