@@ -2,12 +2,6 @@ body {
 	adobe-hyphenate: none;
 }
 
-table {
-	color: #585858;
-	margin-left: 5%;
-	font-size: smaller;
-}
-
 h1,
 h2,
 h3 {
@@ -35,6 +29,15 @@ td {
 }
 
 table {
+	color: initial !important;
+	margin-left: 5%;
+	margin-right: 5%;
+	font-size: smaller;
+
+	filter: contrast(5);
+	background-color: unset !important;
+	font-size: 0.8em;
+
 	border: 1px solid;
 	border-collapse: collapse;
 }
