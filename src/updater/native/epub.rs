@@ -159,12 +159,13 @@ impl Book {
         })
     }
 
-    pub fn from_path(url: &str, path: &Path) -> eyre::Result<Self> {
+    pub fn from_path(path: &Path) -> Result<Self> {
         let now = chrono::Utc::now();
         let mut epub_doc = EpubDoc::new(path)?;
+        let url = epub_doc.mdata("source").unwrap_or_default();
         let mut book = Self {
-            id: Self::get_id_from_url(url)?,
-            url: epub_doc.mdata("source").unwrap_or_default(),
+            id: Self::get_id_from_url(&url)?,
+            url,
             title: epub_doc.mdata("title").unwrap_or_default(),
             author: epub_doc.mdata("creator").unwrap_or_default(),
             description: epub_doc.mdata("description").unwrap_or_default(),
