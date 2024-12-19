@@ -164,18 +164,22 @@ impl Book {
             chapters: Vec::new(),
         };
 
-        let image_ids: Vec<_> = epub_doc
+        let image_filenames_and_ids: Vec<_> = epub_doc
             .resources
             .iter()
             .filter(|(_id, (_path, mime))| mime.starts_with("image"))
-            .map(|(id, _)| id.clone())
+            .filter_map(|(id, (path, _mime))| {
+                path.file_name()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .map(|p| (id.clone(), p))
+            })
             .collect();
 
-        image_ids
+        image_filenames_and_ids
             .iter()
-            .filter_map(|id| epub_doc.get_resource(id).map(|(i, _)| (id.clone(), i)))
-            .for_each(|(id, image)| {
-                if let Err(e) = Cache::write_inline_image(&book, &id, &image) {
+            .filter_map(|(id, filename)| epub_doc.get_resource(id).map(|(i, _)| (filename, i)))
+            .for_each(|(filename, image)| {
+                if let Err(e) = Cache::write_inline_image(&book, filename, &image) {
                     MULTI_PROGRESS.eprintln(&format!("{e}"));
                 };
             });

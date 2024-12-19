@@ -5,6 +5,7 @@ use image::ImageReader;
 use lazy_static::lazy_static;
 use scraper::{Html, Selector};
 use std::io::Cursor;
+use std::path::Path;
 use url::Url;
 use webp::Decoder;
 
@@ -14,16 +15,27 @@ lazy_static! {
 }
 
 pub fn extract_file_name(url: &str) -> eyre::Result<String> {
-    let mut url = Url::parse(url).map_err(|e| eyre!("{e} (Image URL : {url})"))?;
+    extract_file_name_from_url(url)
+        .or_else(|| extract_file_name_from_path(url))
+        .ok_or_else(|| eyre!("{url} is neither an url nor a path"))
+}
+
+fn extract_file_name_from_url(url: &str) -> Option<String> {
+    let mut url = Url::parse(url).ok()?;
     url.set_query(None);
     url.set_fragment(None);
 
-    Ok(url
-        .path_segments()
+    url.path_segments()
         .and_then(std::iter::Iterator::last)
-        .ok_or_else(|| eyre!("Invalid image URL : {url}"))?
-        .to_string()
-        .replace(FORBIDDEN_CHARACTERS, "_"))
+        .map(ToString::to_string)
+        .map(|f| f.replace(FORBIDDEN_CHARACTERS, "_"))
+}
+
+fn extract_file_name_from_path(path: &str) -> Option<String> {
+    Path::new(path)
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .map(|f| f.replace(FORBIDDEN_CHARACTERS, "_"))
 }
 
 pub fn extract_urls_from_html(body: &Option<String>) -> Vec<String> {
@@ -31,7 +43,6 @@ pub fn extract_urls_from_html(body: &Option<String>) -> Vec<String> {
         Html::parse_fragment(text)
             .select(&IMAGE_SELECTOR)
             .filter_map(|element| element.value().attr("src"))
-            .filter(|u| Url::parse(u).is_ok())
             .map(std::string::ToString::to_string)
             .collect()
     })
@@ -41,7 +52,12 @@ pub fn replace_url_with_path(mut body: String) -> String {
     Html::parse_fragment(&body)
         .select(&IMAGE_SELECTOR)
         .filter_map(|element| element.value().attr("src"))
-        .filter_map(|src| extract_file_name(src).map(|new_src| (src, new_src)).ok())
+        .filter_map(|src| {
+            extract_file_name(src)
+                .map(|f| format!("../images/{f}"))
+                .map(|new_src| (src, new_src))
+                .ok()
+        })
         .for_each(|(src, new_src)| body = body.replace(src, &new_src));
 
     body

@@ -62,8 +62,11 @@ table {
 .authors-note-start img,
 .authors-note-end img,
 .author-note-portlet img {
+	display: block;
 	max-width: 10rem;
 	max-height: 10rem;
+	width: auto;
+	height: auto;
 }
 
 .authors-note-start,
