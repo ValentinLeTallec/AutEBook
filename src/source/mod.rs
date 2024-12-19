@@ -1,12 +1,14 @@
+#[cfg(feature = "fanficfare")]
+mod fanficfare;
 mod royalroad;
 use std::path::Path;
 
 use epub::doc::EpubDoc;
 use royalroad::RoyalRoad;
 
-use crate::updater::Download;
 #[cfg(feature = "fanficfare")]
-use crate::updater::FanFicFare;
+use crate::source::fanficfare::FanFicFare;
+use crate::updater::Download;
 
 macro_rules! try_source {
     ($book_source:ident, $url:expr) => {{

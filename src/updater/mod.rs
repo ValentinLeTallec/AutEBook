@@ -1,12 +1,8 @@
-mod fanficfare;
 pub mod native;
 
 use epub::doc::EpubDoc;
 use eyre::{bail, eyre, Error, Result};
 use std::{ffi::OsStr, fs, path::Path};
-
-#[cfg(feature = "fanficfare")]
-pub use fanficfare::FanFicFare;
 
 #[derive(Debug)]
 pub enum UpdateResult {
