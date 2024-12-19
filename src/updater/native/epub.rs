@@ -285,7 +285,7 @@ impl PartialEq for Chapter {
 }
 impl Eq for Chapter {}
 impl Chapter {
-    pub fn extract_from_epub(identifier: &str, xhtml: &str, now: DateTime<Utc>) -> Self {
+    pub fn extract_from_epub(file_identifier: &str, xhtml: &str, now: DateTime<Utc>) -> Self {
         let parsed = Html::parse_document(xhtml);
 
         let title = parsed
@@ -310,7 +310,7 @@ impl Chapter {
                 url.path_segments()
                     .and_then(|mut x| x.nth(4).map(ToString::to_string))
             })
-            .unwrap_or_else(|| identifier.to_string());
+            .unwrap_or_else(|| file_identifier.to_string());
 
         let was_generated_with_native_updater = parsed
             .get_meta_content_of(&EPUB_META_GENERATOR_SELECTOR)
