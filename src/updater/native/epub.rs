@@ -490,6 +490,8 @@ pub fn write(book: &Book, outfile: Option<String>) -> Result<String> {
         images.extend(image::extract_urls_from_html(&chapter.authors_note_start));
         images.extend(image::extract_urls_from_html(&chapter.authors_note_end));
     }
+    // Fanficfare add this url when it can load the image
+    images.remove("failedtoload");
 
     // Store image filenames to add them to the content_opf
     let mut image_filenames: HashSet<String> = HashSet::new();
