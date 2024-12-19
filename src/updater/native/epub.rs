@@ -1,11 +1,12 @@
 use crate::updater::native::image;
 use crate::updater::native::{cache::Cache, xml_ext::write_elements};
 use crate::{ErrorPrint, MULTI_PROGRESS};
+
 use chrono::{DateTime, Utc};
 use derive_more::derive::Debug;
 use epub::doc::EpubDoc;
 use eyre::{bail, eyre};
-use governor::{DefaultKeyedRateLimiter, Quota, RateLimiter};
+use governor::{DefaultKeyedRateLimiter, Jitter, Quota, RateLimiter};
 use lazy_regex::regex;
 use lazy_static::lazy_static;
 use reqwest::blocking::{Client, Response};
@@ -52,7 +53,7 @@ pub fn send_get_request(url: &str) -> std::result::Result<Response, reqwest::Err
         .unwrap_or_default();
 
     while rate_limiter.check_key(&host).is_err() {
-        thread::sleep(Duration::from_millis(50));
+        thread::sleep(Jitter::up_to(Duration::from_millis(30)) + Duration::from_millis(50));
     }
 
     CLIENT_CELL
