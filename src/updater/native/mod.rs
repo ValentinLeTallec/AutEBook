@@ -6,25 +6,33 @@ use ::epub::doc::EpubDoc;
 use epub::Book;
 use eyre::{eyre, OptionExt, Result};
 
-use super::{UpdateResult, WebNovel};
+use super::{Download, UpdateResult};
 
 mod cache;
-mod epub;
+pub mod epub;
 mod image;
 mod xml_ext;
 
-pub struct Native;
-
-impl WebNovel for Native {
-    fn new() -> Self {
-        Self {}
+impl Download for epub::Book {
+    fn get_title(&self, _path: &Path) -> String {
+        self.title.clone()
     }
-    fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<crate::Book> {
-        let (book, _) = get_book(url, None)?;
-        let outfile = epub::write(&book, filename.and_then(|f| f.to_str()).map(String::from))?;
 
-        let file_path = dir.join(outfile);
-        Ok(crate::Book::new(&file_path))
+    fn get_url(&self) -> String {
+        self.url.clone()
+    }
+
+    fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<String> {
+        let (book, _) = get_book(url, None)?;
+        epub::write(
+            &book,
+            filename
+                .and_then(|f| f.to_str())
+                .map(|f| dir.join(f))
+                .map(|p| p.to_string_lossy().to_string()),
+        )?;
+
+        Ok(book.title)
     }
 
     fn update(&self, path: &Path) -> UpdateResult {
@@ -34,7 +42,7 @@ impl WebNovel for Native {
 
 fn get_book(url: &str, path: Option<&Path>) -> eyre::Result<(Book, UpdateResult)> {
     // Do the initial metadata fetch of the book.
-    let mut fetched_book = Book::new(url)?;
+    let mut fetched_book = Book::fetch_without_chapter_content(url)?;
 
     // Check the cache.
     let mut current_book = path

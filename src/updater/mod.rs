@@ -1,15 +1,12 @@
 mod fanficfare;
-mod native;
+pub mod native;
 
-use eyre::{eyre, Error, Result};
+use epub::doc::EpubDoc;
+use eyre::{bail, eyre, Error, Result};
 use std::{ffi::OsStr, fs, path::Path};
-use thiserror::Error;
 
 #[cfg(feature = "fanficfare")]
 pub use fanficfare::FanFicFare;
-pub use native::Native;
-
-use crate::book::Book;
 
 #[derive(Debug)]
 pub enum UpdateResult {
@@ -21,25 +18,31 @@ pub enum UpdateResult {
     Error(Error),
 }
 
-#[derive(Error, Debug)]
-#[error("This webnovel does not contain a supported source URL")]
-pub struct Unsupported;
+type DisplayName = String;
 
-pub trait WebNovel {
-    fn new() -> Self
-    where
-        Self: Sized;
+pub trait Download {
+    fn get_url(&self) -> String;
 
-    #[allow(unused_variables)]
-    fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<Book> {
-        Err(Unsupported.into())
+    fn get_title(&self, path: &Path) -> String {
+        EpubDoc::new(path)
+            .ok()
+            .and_then(|e| e.mdata("title"))
+            .unwrap_or_else(|| format!("{} (No Title)", path.to_string_lossy()))
     }
-    #[allow(unused_variables)]
+
+    fn create(&self, _dir: &Path, _filename: Option<&OsStr>, _url: &str) -> Result<DisplayName> {
+        bail!("This webnovel does not contain a supported source URL")
+    }
+
     fn update(&self, path: &Path) -> UpdateResult {
-        UpdateResult::Unsupported
+        self.do_update(path).unwrap_or_else(UpdateResult::Error)
     }
 
-    fn stash_and_recreate(&self, book: &Path, stash_folder: &Path, url: &str) -> Result<Book> {
+    fn do_update(&self, _path: &Path) -> Result<UpdateResult> {
+        Ok(UpdateResult::Unsupported)
+    }
+
+    fn stash_and_recreate(&self, book: &Path, stash_folder: &Path) -> Result<()> {
         let parent_dir = book
             .parent()
             .ok_or_else(|| eyre!("Could not retrieve the book's parent directory."))?;
@@ -67,6 +70,7 @@ pub trait WebNovel {
         fs::rename(book, stash_folder.join(stashed_filename))?;
 
         // Creation of the new instance of the book
-        self.create(parent_dir, Some(&original_filename), url)
+        self.create(parent_dir, Some(&original_filename), &self.get_url())?;
+        Ok(())
     }
 }

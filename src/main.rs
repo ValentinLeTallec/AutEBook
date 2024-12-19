@@ -10,11 +10,9 @@
     clippy::use_debug
 )]
 #![allow(clippy::multiple_crate_versions)]
-mod book;
 mod source;
 mod updater;
 
-use crate::book::Book;
 use crate::updater::UpdateResult;
 use clap::{CommandFactory, Parser, Subcommand};
 use colorful::Colorful;
@@ -139,13 +137,12 @@ fn create_books(dir: &Path, urls: &[String]) {
 
     urls.par_iter().for_each(|url| {
         bar.set_prefix(url.clone());
-        let creation_res = Book::create(dir, url);
-        bar.inc(1);
 
-        match creation_res {
-            Ok(book) => bar.println(format!("{:.50}\n", book.title)),
+        match source::from_url(url).create(dir, None, url) {
+            Ok(title) => bar.println(format!("{title:.50}\n")),
             Err(e) => bar.println(summary!(e, url, red)),
         }
+        bar.inc(1);
     });
     bar.finish_and_clear();
 }
@@ -155,17 +152,18 @@ fn update_books(book_files: &[FileToUpdate], stash: bool) {
 
     book_files.par_iter().for_each(|file_to_update| {
         let path = file_to_update.file_path.path();
-        let book = Book::new(path);
-        bar.set_prefix(book.title.clone());
+        let source = source::from_path(path);
+        let title = source.get_title(path);
 
-        match book.update(path) {
-            UpdateResult::Updated(n) => bar.println(summary!(n, book.title, green)),
-            UpdateResult::Skipped => bar.println(summary!("Skip", book.title, blue)),
+        bar.set_prefix(title.clone());
+        match source.update(path) {
+            UpdateResult::Updated(n) => bar.println(summary!(n, title, green)),
+            UpdateResult::Skipped => bar.println(summary!("Skip", title, blue)),
             UpdateResult::MoreChapterThanSource(n) => {
-                bar.println(summary!(-i32::from(n), book.title, red));
+                bar.println(summary!(-i32::from(n), title, red));
                 if stash {
-                    match book.stash_and_recreate(path, &file_to_update.stash_path) {
-                        Ok(book) => bar.println(summary!("New", book.title, light_green)),
+                    match source.stash_and_recreate(path, &file_to_update.stash_path) {
+                        Ok(()) => bar.println(summary!("New", title, light_green)),
                         Err(e) => eprintln!("{e}"),
                     }
                 }

@@ -93,7 +93,7 @@ pub struct Book {
     pub chapters: Vec<Chapter>,
 }
 impl Book {
-    pub fn new(url: &str) -> eyre::Result<Self> {
+    pub fn fetch_without_chapter_content(url: &str) -> eyre::Result<Self> {
         // Cover in script tag: window.fictionCover = "...";
         let cover_regex = regex!(r#"window\.fictionCover = "(.*)";"#);
         // Chapters array in script tag: window.chapters = [...];
@@ -653,7 +653,6 @@ fn clean_html(original_content: &str) -> String {
     let font_weight_regex = regex!(r#"font-weight:\s?400"#);
     content = font_weight_regex.replace_all(&content, "").to_string();
 
-    // Remove &nbsp;
     let class_regex = regex!(r#" class="[^"]*""#);
     content = class_regex.replace_all(&content, "").to_string();
 
