@@ -9,6 +9,7 @@ use eyre::{bail, eyre, Result};
 use governor::{DefaultKeyedRateLimiter, Jitter, Quota, RateLimiter};
 use lazy_regex::regex;
 use reqwest::blocking::{Client, Response};
+use reqwest::StatusCode;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -30,12 +31,15 @@ pub const FORBIDDEN_CHARACTERS: [char; 13] = [
 ];
 
 pub fn send_get_request(url: &str) -> Result<Response> {
+    send_get_request_rec(url, 4)
+}
 
+pub fn send_get_request_rec(url: &str, bounce: u8) -> Result<Response> {
     static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
     #[allow(clippy::unwrap_used)]
     static RATE_LIMITER: LazyLock<DefaultKeyedRateLimiter<String>> = LazyLock::new(|| {
         RateLimiter::keyed(
-            Quota::per_second(NonZeroU32::new(5u32).unwrap())
+            Quota::per_second(NonZeroU32::new(2u32).unwrap())
                 .allow_burst(NonZeroU32::new(1u32).unwrap()),
         )
     });
@@ -55,6 +59,16 @@ pub fn send_get_request(url: &str) -> Result<Response> {
         .header("User-Agent", USER_AGENT)
         .send()
         .map_err(|e| eyre!("{e} (URL: {url})"))
+        .and_then(|e| {
+            if e.status() == StatusCode::TOO_MANY_REQUESTS && bounce <= 10 {
+                let secs = 2_u8.pow(bounce.into()).into();
+                MULTI_PROGRESS.eprintln(&eyre!("Too many request, waiting for {secs} s"));
+                thread::sleep(Duration::from_secs(secs));
+                send_get_request_rec(url, bounce + 1)
+            } else {
+                Ok(e)
+            }
+        })
 }
 
 #[macro_export]
@@ -505,7 +519,7 @@ pub fn write(book: &Book, outfile: Option<String>) -> Result<String> {
         images.extend(image::extract_urls_from_html(&chapter.authors_note_end));
     }
     // Fanficfare add this url when it can load the image
-    images.remove("failedtoload");
+    images.retain(|i| !i.ends_with("failedtoload"));
 
     // Store image filenames to add them to the content_opf
     let mut image_filenames: HashSet<String> = HashSet::new();
@@ -1147,7 +1161,7 @@ pub fn download_image(book: &Book, url: &str, filename: &str) -> Result<Vec<u8>>
 
 #[cfg(test)]
 mod test {
-    use crate::updater::native::epub::clean_html;
+    use super::clean_html;
 
     #[test]
     fn clean_font_familly_1() {
