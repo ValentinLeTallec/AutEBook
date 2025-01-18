@@ -57,39 +57,53 @@ pub fn send_get_request(url: &str) -> Result<Response> {
         .map_err(|e| eyre!("{e} (URL: {url})"))
 }
 
-macro_rules! lazy_selector {
-    ($selector_name:ident,$selector:expr) => {
-        static $selector_name: LazyLock<Selector> =
-            LazyLock::new(|| Selector::parse($selector).unwrap());
+#[macro_export]
+macro_rules! lazy_selectors {
+    ( $( $selector_name:ident, $selector:expr; )* ) => {
+        $(
+        static $selector_name: std::sync::LazyLock<scraper::Selector> =
+            std::sync::LazyLock::new(|| scraper::Selector::parse($selector).unwrap());
+        )*
+
+        #[cfg(test)]
+        mod lazy_selectors_autotest {
+            $(
+                /// Ensure the selector can be unwraped safely
+                #[test]
+                #[allow(non_snake_case)]
+                fn $selector_name() {
+                    assert!(scraper::Selector::parse(&$selector).is_ok());
+                }
+            )*
+        }
     };
 }
 
-lazy_selector!(CONTENT_SELECTOR, ".chapter-inner.chapter-content");
+lazy_selectors! {
+    CONTENT_SELECTOR, ".chapter-inner.chapter-content";
 
-// Strange selectors are because RR doesn't have a way to tell if the author's note is
-// at the start or the end in the HTML.
-lazy_selector!(AUTHORS_NOTE_START_SELECTOR, "hr + .portlet > .author-note");
-lazy_selector!(AUTHORS_NOTE_END_SELECTOR, "div + .portlet > .author-note");
+    // Strange selectors are because RR doesn't have a way to tell if the author's note is
+    // at the start or the end in the HTML.
+    AUTHORS_NOTE_START_SELECTOR, "hr + .portlet > .author-note";
+    AUTHORS_NOTE_END_SELECTOR, "div + .portlet > .author-note";
 
-lazy_selector!(TITLE_SELECTOR, "h1");
-lazy_selector!(AUTHOR_SELECTOR, "h4 a");
-lazy_selector!(DESCRIPTION_SELECTOR, ".description > .hidden-content");
-lazy_selector!(WATERMARK_SELECTOR, "[class^=cj],[class^=cm]");
+    TITLE_SELECTOR, "h1";
+    AUTHOR_SELECTOR, "h4 a";
+    DESCRIPTION_SELECTOR, ".description > .hidden-content";
+    WATERMARK_SELECTOR, "[class^=cj],[class^=cm]";
 
-lazy_selector!(TITLE_ELEMENT_SELECTOR, "title");
-lazy_selector!(BODY_ELEMENT_SELECTOR, "body");
+    TITLE_ELEMENT_SELECTOR, "title";
+    BODY_ELEMENT_SELECTOR, "body";
 
-lazy_selector!(EPUB_META_CHAPTER_URL_SELECTOR, "meta[name=chapterurl]");
-lazy_selector!(EPUB_META_DATE_PUBLISHED_SELECTOR, "meta[name=published]");
-lazy_selector!(EPUB_META_GENERATOR_SELECTOR, "meta[name=generator]");
+    EPUB_META_CHAPTER_URL_SELECTOR, "meta[name=chapterurl]";
+    EPUB_META_DATE_PUBLISHED_SELECTOR, "meta[name=published]";
+    EPUB_META_GENERATOR_SELECTOR, "meta[name=generator]";
 
-lazy_selector!(EPUB_CHAPTER_CONTENT_SELECTOR, ".chapter-content");
-lazy_selector!(EPUB_AUTHORS_NOTE_START_SELECTOR, ".authors-note-start");
-lazy_selector!(EPUB_AUTHORS_NOTE_END_SELECTOR, ".authors-note-end");
-lazy_selector!(
-    EPUB_FANFICFARE_AUTHORS_NOTE_SELECTOR,
-    ".author-note-portlet"
-);
+    EPUB_CHAPTER_CONTENT_SELECTOR, ".chapter-content";
+    EPUB_AUTHORS_NOTE_START_SELECTOR, ".authors-note-start";
+    EPUB_AUTHORS_NOTE_END_SELECTOR, ".authors-note-end";
+    EPUB_FANFICFARE_AUTHORS_NOTE_SELECTOR, ".author-note-portlet";
+}
 
 #[derive(Default, Clone, Debug)]
 pub struct Book {

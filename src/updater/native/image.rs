@@ -8,10 +8,10 @@ use std::path::Path;
 use url::Url;
 use webp::Decoder;
 
-use crate::lazy_selector;
+use crate::lazy_selectors;
 use crate::updater::native::epub::FORBIDDEN_CHARACTERS;
 
-lazy_selector!(IMAGE_SELECTOR, "img");
+lazy_selectors! {IMAGE_SELECTOR, "img";}
 
 pub fn extract_file_name(url: &str) -> Result<String> {
     extract_file_name_from_url(url)
