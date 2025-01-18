@@ -8,7 +8,6 @@ use epub::doc::EpubDoc;
 use eyre::{bail, eyre, Result};
 use governor::{DefaultKeyedRateLimiter, Jitter, Quota, RateLimiter};
 use lazy_regex::regex;
-use lazy_static::lazy_static;
 use reqwest::blocking::{Client, Response};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
@@ -16,7 +15,7 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::num::NonZeroU32;
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 use std::thread;
 use std::time::Duration;
 use url::Url;
@@ -30,17 +29,11 @@ pub const FORBIDDEN_CHARACTERS: [char; 13] = [
     '/', '\\', ':', '*', '?', '"', '<', '>', '|', '%', '"', '[', ']',
 ];
 
-#[allow(clippy::unwrap_used)]
-pub fn compile_time_selector(selector: &str) -> scraper::Selector {
-    Selector::parse(selector).unwrap()
-}
-
 pub fn send_get_request(url: &str) -> Result<Response> {
-    static CLIENT_CELL: OnceLock<Client> = OnceLock::new();
-    static RATE_LIMITER_CELL: OnceLock<DefaultKeyedRateLimiter<String>> = OnceLock::new();
 
+    static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
     #[allow(clippy::unwrap_used)]
-    let rate_limiter = RATE_LIMITER_CELL.get_or_init(|| {
+    static RATE_LIMITER: LazyLock<DefaultKeyedRateLimiter<String>> = LazyLock::new(|| {
         RateLimiter::keyed(
             Quota::per_second(NonZeroU32::new(5u32).unwrap())
                 .allow_burst(NonZeroU32::new(1u32).unwrap()),
@@ -53,43 +46,50 @@ pub fn send_get_request(url: &str) -> Result<Response> {
         .map(|h| h.to_string())
         .unwrap_or_default();
 
-    while rate_limiter.check_key(&host).is_err() {
+    while RATE_LIMITER.check_key(&host).is_err() {
         thread::sleep(Jitter::up_to(Duration::from_millis(30)) + Duration::from_millis(50));
     }
 
-    CLIENT_CELL
-        .get_or_init(Client::new)
+    CLIENT
         .get(url)
         .header("User-Agent", USER_AGENT)
         .send()
         .map_err(|e| eyre!("{e} (URL: {url})"))
 }
 
-lazy_static! {
-    static ref CONTENT_SELECTOR: Selector = compile_time_selector(".chapter-inner.chapter-content");
-
-    // Strange selectors are because RR doesn't have a way to tell if the author's note is
-    // at the start or the end in the HTML.
-    static ref AUTHORS_NOTE_START_SELECTOR: Selector = compile_time_selector("hr + .portlet > .author-note");
-    static ref AUTHORS_NOTE_END_SELECTOR: Selector = compile_time_selector("div + .portlet > .author-note");
-
-    static ref TITLE_SELECTOR : Selector = compile_time_selector("h1");
-    static ref AUTHOR_SELECTOR : Selector = compile_time_selector("h4 a");
-    static ref DESCRIPTION_SELECTOR : Selector = compile_time_selector(".description > .hidden-content");
-    static ref WATERMARK_SELECTOR : Selector = compile_time_selector("[class^=cj],[class^=cm]");
-
-    static ref TITLE_ELEMENT_SELECTOR : Selector = compile_time_selector("title");
-    static ref BODY_ELEMENT_SELECTOR : Selector = compile_time_selector("body");
-
-    static ref EPUB_META_CHAPTER_URL_SELECTOR : Selector = compile_time_selector("meta[name=chapterurl]");
-    static ref EPUB_META_DATE_PUBLISHED_SELECTOR : Selector = compile_time_selector("meta[name=published]");
-    static ref EPUB_META_GENERATOR_SELECTOR : Selector = compile_time_selector("meta[name=generator]");
-
-    static ref EPUB_CHAPTER_CONTENT_SELECTOR : Selector = compile_time_selector(".chapter-content");
-    static ref EPUB_AUTHORS_NOTE_START_SELECTOR: Selector = compile_time_selector(".authors-note-start");
-    static ref EPUB_AUTHORS_NOTE_END_SELECTOR: Selector = compile_time_selector(".authors-note-end");
-    static ref EPUB_FANFICFARE_AUTHORS_NOTE_SELECTOR: Selector = compile_time_selector(".author-note-portlet");
+macro_rules! lazy_selector {
+    ($selector_name:ident,$selector:expr) => {
+        static $selector_name: LazyLock<Selector> =
+            LazyLock::new(|| Selector::parse($selector).unwrap());
+    };
 }
+
+lazy_selector!(CONTENT_SELECTOR, ".chapter-inner.chapter-content");
+
+// Strange selectors are because RR doesn't have a way to tell if the author's note is
+// at the start or the end in the HTML.
+lazy_selector!(AUTHORS_NOTE_START_SELECTOR, "hr + .portlet > .author-note");
+lazy_selector!(AUTHORS_NOTE_END_SELECTOR, "div + .portlet > .author-note");
+
+lazy_selector!(TITLE_SELECTOR, "h1");
+lazy_selector!(AUTHOR_SELECTOR, "h4 a");
+lazy_selector!(DESCRIPTION_SELECTOR, ".description > .hidden-content");
+lazy_selector!(WATERMARK_SELECTOR, "[class^=cj],[class^=cm]");
+
+lazy_selector!(TITLE_ELEMENT_SELECTOR, "title");
+lazy_selector!(BODY_ELEMENT_SELECTOR, "body");
+
+lazy_selector!(EPUB_META_CHAPTER_URL_SELECTOR, "meta[name=chapterurl]");
+lazy_selector!(EPUB_META_DATE_PUBLISHED_SELECTOR, "meta[name=published]");
+lazy_selector!(EPUB_META_GENERATOR_SELECTOR, "meta[name=generator]");
+
+lazy_selector!(EPUB_CHAPTER_CONTENT_SELECTOR, ".chapter-content");
+lazy_selector!(EPUB_AUTHORS_NOTE_START_SELECTOR, ".authors-note-start");
+lazy_selector!(EPUB_AUTHORS_NOTE_END_SELECTOR, ".authors-note-end");
+lazy_selector!(
+    EPUB_FANFICFARE_AUTHORS_NOTE_SELECTOR,
+    ".author-note-portlet"
+);
 
 #[derive(Default, Clone, Debug)]
 pub struct Book {

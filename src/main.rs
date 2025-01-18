@@ -18,17 +18,15 @@ use clap::{CommandFactory, Parser, Subcommand};
 use colorful::Colorful;
 use eyre::Error;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use lazy_static::lazy_static;
 use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use walkdir::WalkDir;
 
 const EPUB: &str = "epub";
 
-lazy_static! {
-    pub static ref MULTI_PROGRESS: MultiProgress = MultiProgress::new();
-}
+pub static MULTI_PROGRESS: LazyLock<MultiProgress> = LazyLock::new(MultiProgress::new);
 
 /// A small utility used to obtain and update web novels as e-books.
 /// It currently levrage `FanFicFare` but is extensible to other updaters.
