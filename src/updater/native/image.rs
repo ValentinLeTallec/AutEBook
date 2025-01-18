@@ -203,10 +203,19 @@ impl ResizableImageFormat {
 
 #[cfg(test)]
 mod test {
-    use scraper::Selector;
+    use super::*;
 
     #[test]
-    fn test_selectors() {
-        assert!(Selector::parse("img").is_ok());
+    fn test_replace_url_with_path() {
+        let mut body = String::from("<img src=\"../images/file\">");
+        body = replace_url_with_path(body);
+        assert_eq!(String::from("<img src=\"../images/file\">"), body);
+    }
+
+    #[test]
+    fn test_replace_url_with_path_with_repetition() {
+        let mut body = String::from("<img src=\"../images/../images/file\">");
+        body = replace_url_with_path(body);
+        assert_eq!(String::from("<img src=\"../images/file\">"), body);
     }
 }
