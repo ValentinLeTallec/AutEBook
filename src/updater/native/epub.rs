@@ -71,9 +71,10 @@ pub fn send_get_request_rec(url: &str, bounce: u8) -> Result<Response> {
         })
 }
 
+/// Declare selectors that are only initialised once and add tests to ensure they can be safely unwraped
 #[macro_export]
 macro_rules! lazy_selectors {
-    ( $( $selector_name:ident, $selector:expr; )* ) => {
+    ( $( $selector_name:ident, $selector:expr; )+ ) => {
         $(
         static $selector_name: std::sync::LazyLock<scraper::Selector> =
             std::sync::LazyLock::new(|| scraper::Selector::parse($selector).unwrap());
