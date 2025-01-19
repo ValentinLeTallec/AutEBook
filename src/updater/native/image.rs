@@ -37,7 +37,7 @@ fn extract_file_name_from_path(path: &str) -> Option<String> {
         .map(|f| f.replace(FORBIDDEN_CHARACTERS, "_"))
 }
 
-pub fn extract_urls_from_html(body: &Option<String>) -> Vec<String> {
+pub fn urls_from_html(body: Option<&str>) -> Vec<String> {
     body.as_ref().map_or_else(Vec::new, |text| {
         Html::parse_fragment(text)
             .select(&IMAGE_SELECTOR)

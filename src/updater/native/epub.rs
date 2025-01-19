@@ -514,9 +514,9 @@ pub fn write(book: &Book, outfile: Option<String>) -> Result<String> {
         chapter_html(chapter, &mut epub_file)?;
 
         // Find each inline image in the content, as well as Author's Notes.
-        images.extend(image::extract_urls_from_html(&chapter.content));
-        images.extend(image::extract_urls_from_html(&chapter.authors_note_start));
-        images.extend(image::extract_urls_from_html(&chapter.authors_note_end));
+        images.extend(image::urls_from_html(chapter.content.as_deref()));
+        images.extend(image::urls_from_html(chapter.authors_note_start.as_deref()));
+        images.extend(image::urls_from_html(chapter.authors_note_end.as_deref()));
     }
     // Fanficfare add this url when it can load the image
     images.retain(|i| !i.ends_with("failedtoload"));
