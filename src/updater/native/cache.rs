@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use bytes::Bytes;
 use eyre::eyre;
 
-use crate::updater::native::epub::Book;
+use crate::updater::native::book::Book;
 
 pub struct Cache;
 impl Cache {

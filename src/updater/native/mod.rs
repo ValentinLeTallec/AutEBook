@@ -3,17 +3,18 @@ use std::{collections::HashSet, ffi::OsStr};
 
 use crate::{get_progress_bar, ErrorPrint, MULTI_PROGRESS};
 use ::epub::doc::EpubDoc;
-use epub::Book;
+use book::Book;
 use eyre::{eyre, OptionExt, Result};
 
 use super::{Download, UpdateResult};
 
+pub mod book;
 mod cache;
-pub mod epub;
+mod epub;
 mod image;
-mod xml_ext;
+mod request;
 
-impl Download for epub::Book {
+impl Download for Book {
     fn get_title(&self, _path: &Path) -> String {
         self.title.clone()
     }

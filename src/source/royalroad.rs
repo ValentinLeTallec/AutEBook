@@ -1,4 +1,4 @@
-use crate::updater::native::epub::Book;
+use crate::updater::native::book::Book;
 
 pub type RoyalRoad = Book;
 
