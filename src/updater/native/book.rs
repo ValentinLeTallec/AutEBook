@@ -6,7 +6,7 @@ use crate::{ErrorPrint, MULTI_PROGRESS};
 use chrono::{DateTime, Utc};
 use derive_more::derive::Debug;
 use epub::doc::EpubDoc;
-use eyre::{bail, eyre, Result};
+use eyre::{eyre, Result};
 use lazy_regex::regex;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
@@ -82,8 +82,7 @@ impl Book {
         // Chapters array in script tag: window.chapters = [...];
         let chapters_regex = regex!(r"window\.chapters = (\[.*]);");
 
-        let request = request::get(url)?.error_for_status()?;
-        let response = request.text()?;
+        let response = request::get_text(url)?;
 
         // Parse book metadata.
         let parsed = Html::parse_document(&response);
@@ -208,17 +207,9 @@ impl Book {
             return Ok(image.into());
         }
 
-        let image = request::get(url)?;
+        let image = request::get_bytes(url)?;
 
-        if !image.status().is_success() {
-            // Ignore failed images.
-            bail!(
-            "Failed to download image from URL. This is likely NOT a bug with rr-to-epub. URL: {}",
-            url
-        );
-        }
-
-        let buffer = image::resize(image.bytes()?).map_err(|err| eyre!("{err} URL: {url}"))?;
+        let buffer = image::resize(image).map_err(|err| eyre!("{err} URL: {url}"))?;
 
         // Save the image in the cache.
         Cache::write_inline_image(self, filename, &buffer)?;
@@ -338,8 +329,7 @@ impl Chapter {
             return Ok(());
         }
 
-        let request = request::get(&self.url)?.error_for_status()?;
-        let text = request.text()?;
+        let text = request::get_text(&self.url)?;
 
         let mut parsed = Html::parse_document(&text);
 

@@ -1,5 +1,6 @@
 use crate::{ErrorPrint, MULTI_PROGRESS};
 
+use bytes::Bytes;
 use eyre::{eyre, Result};
 use governor::{DefaultKeyedRateLimiter, Jitter, Quota, RateLimiter};
 use reqwest::blocking::{Client, Response};
@@ -12,8 +13,18 @@ use url::Url;
 
 const USER_AGENT: &str = "AutEBook <https://github.com/ValentinLeTallec/AutEBook>";
 
-pub fn get(url: &str) -> Result<Response> {
-    send_get_request_rec(url, 4)
+pub fn get_text(url: &str) -> Result<String> {
+    send_get_request_rec(url, 4)?
+        .error_for_status()
+        .and_then(reqwest::blocking::Response::text)
+        .map_err(|e| eyre!("Broken link : {e} (URL: {url})"))
+}
+
+pub fn get_bytes(url: &str) -> Result<Bytes> {
+    send_get_request_rec(url, 4)?
+        .error_for_status()
+        .and_then(reqwest::blocking::Response::bytes)
+        .map_err(|e| eyre!("Broken link : {e} (URL: {url})"))
 }
 
 fn send_get_request_rec(url: &str, bounce: u8) -> Result<Response> {

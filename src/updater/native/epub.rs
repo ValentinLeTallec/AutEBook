@@ -101,7 +101,7 @@ pub fn write(book: &Book, outfile: Option<String>) -> Result<String> {
 
                 image_filenames.insert(filename);
             }
-            Err(err) if err.to_string().starts_with("relative URL without a base") => {}
+            Err(err) if err.to_string().contains("relative URL without a base") => {}
             Err(err) => MULTI_PROGRESS.eprintln(&err),
         }
     }
