@@ -414,11 +414,6 @@ fn content_opf(
                 .attr("content", "horizontal-lr")
                 .into(),
             XmlEvent::end_element().into(),
-            XmlEvent::start_element("meta")
-                .attr("name", "rr-to-epub:royal-road-id")
-                .attr("content", &book.id.to_string())
-                .into(),
-            XmlEvent::end_element().into(),
             XmlEvent::end_element().into(),
             // Write the manifest.
             XmlEvent::start_element("manifest").into(),
