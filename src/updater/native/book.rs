@@ -87,20 +87,16 @@ impl Book {
         // Parse book metadata.
         let parsed = Html::parse_document(&response);
         let title = parsed
-            .select(&TITLE_SELECTOR)
-            .next()
-            .ok_or_else(|| eyre!("No title found"))?
-            .inner_html();
+            .get_inner_html_of(&TITLE_SELECTOR)
+            .ok_or_else(|| eyre!("No title found"))?;
+
         let author = parsed
-            .select(&AUTHOR_SELECTOR)
-            .next()
-            .ok_or_else(|| eyre!("No author found"))?
-            .inner_html();
+            .get_inner_html_of(&AUTHOR_SELECTOR)
+            .unwrap_or_else(|| String::from("<unknown>"));
+
         let description = parsed
-            .select(&DESCRIPTION_SELECTOR)
-            .next()
-            .ok_or_else(|| eyre!("No description found"))?
-            .inner_html();
+            .get_inner_html_of(&DESCRIPTION_SELECTOR)
+            .unwrap_or_default();
 
         // Parse chapter metadata.
         let cover = cover_regex
@@ -276,9 +272,7 @@ impl Chapter {
         let parsed = Html::parse_document(xhtml);
 
         let title = parsed
-            .select(&TITLE_ELEMENT_SELECTOR)
-            .next()
-            .map(|e| e.inner_html())
+            .get_inner_html_of(&TITLE_ELEMENT_SELECTOR)
             .unwrap_or_default();
 
         let url = parsed
@@ -336,27 +330,13 @@ impl Chapter {
         remove_royal_road_warnings(&mut parsed);
 
         // Parse content.
-        let content = parsed
-            .select(&CONTENT_SELECTOR)
-            .next()
-            .ok_or_else(|| eyre!("No content found"))?
-            .inner_html();
-        self.content = Some(content);
+        self.content = parsed.get_inner_html_of(&CONTENT_SELECTOR);
 
         // Parse starting author note.
-        if let Some(authors_note) = parsed.select(&AUTHORS_NOTE_START_SELECTOR).next() {
-            let authors_note = authors_note.inner_html();
-            if !authors_note.is_empty() {
-                self.authors_note_start = Some(authors_note);
-            }
-        }
+        self.authors_note_start = parsed.get_inner_html_of(&AUTHORS_NOTE_START_SELECTOR);
+
         // Parse ending author note.
-        if let Some(authors_note) = parsed.select(&AUTHORS_NOTE_END_SELECTOR).next() {
-            let authors_note = authors_note.inner_html();
-            if !authors_note.is_empty() {
-                self.authors_note_end = Some(authors_note);
-            }
-        }
+        self.authors_note_end = parsed.get_inner_html_of(&AUTHORS_NOTE_END_SELECTOR);
 
         Ok(())
     }
@@ -414,11 +394,13 @@ impl QuickSelect for Html {
         self.select(selector)
             .next()
             .map(|element| element.inner_html())
+            .filter(|s| !s.is_empty())
     }
     fn get_meta_content_of(&self, selector: &Selector) -> Option<String> {
         self.select(selector)
             .next()
             .and_then(|e| e.attr("content"))
+            .filter(|s| !s.is_empty())
             .map(ToString::to_string)
     }
 }
