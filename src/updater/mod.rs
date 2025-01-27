@@ -1,15 +1,21 @@
 pub mod native;
 
 use epub::doc::EpubDoc;
-use eyre::{bail, eyre, Error, Result};
-use std::{ffi::OsStr, fs, path::Path};
+#[cfg(feature = "fanficfare")]
+use eyre::eyre;
+use eyre::{bail, Error, Result};
+#[cfg(feature = "fanficfare")]
+use std::fs;
+use std::{ffi::OsStr, path::Path};
 
 #[derive(Debug)]
 pub enum UpdateResult {
     Unsupported,
     UpToDate,
     Updated(u16),
+    #[cfg(feature = "fanficfare")]
     Skipped,
+    #[cfg(feature = "fanficfare")]
     MoreChapterThanSource(u16),
     Error(Error),
 }
@@ -17,6 +23,7 @@ pub enum UpdateResult {
 type DisplayName = String;
 
 pub trait Download {
+    #[cfg(feature = "fanficfare")]
     fn get_url(&self) -> String;
 
     fn get_title(&self, path: &Path) -> String {
@@ -38,6 +45,7 @@ pub trait Download {
         Ok(UpdateResult::Unsupported)
     }
 
+    #[cfg(feature = "fanficfare")]
     fn stash_and_recreate(&self, book: &Path, stash_folder: &Path) -> Result<()> {
         let parent_dir = book
             .parent()

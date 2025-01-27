@@ -35,6 +35,7 @@ pub fn from_path(path: &Path) -> Box<dyn Download> {
 }
 
 pub struct Unsupported {
+    #[cfg(feature = "fanficfare")]
     url: Option<String>,
     message: String,
 }
@@ -42,6 +43,7 @@ pub struct Unsupported {
 impl Unsupported {
     fn from_url(url: &str) -> Self {
         Self {
+            #[cfg(feature = "fanficfare")]
             url: Some(url.to_string()),
             message: format!("Unsupported url ({url})"),
         }
@@ -49,6 +51,7 @@ impl Unsupported {
 
     fn from_path(path: &Path) -> Self {
         Self {
+            #[cfg(feature = "fanficfare")]
             url: None,
             message: format!(
                 "Path does not lead to an e-book with a supported url ({})",
@@ -63,6 +66,7 @@ impl Download for Unsupported {
         self.message.clone()
     }
 
+    #[cfg(feature = "fanficfare")]
     fn get_url(&self) -> String {
         self.url.clone().unwrap_or_default()
     }

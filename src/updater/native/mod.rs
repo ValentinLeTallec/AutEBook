@@ -19,6 +19,7 @@ impl Download for Book {
         self.title.clone()
     }
 
+    #[cfg(feature = "fanficfare")]
     fn get_url(&self) -> String {
         self.url.clone()
     }

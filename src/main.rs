@@ -57,11 +57,13 @@ enum Commands {
 
         /// Stash books which contains more chapters than source in the folder defined in `stash_dir`
         /// and recreate them from source
+        #[cfg(feature = "fanficfare")]
         #[clap(short, long)]
         stash: bool,
 
         /// The directory where stashed books are stored (books in this folder are excuded from updates).
         /// It is relative to the update path.
+        #[cfg(feature = "fanficfare")]
         #[clap(short = 'd', long, default_value = "./stashed", value_hint = clap::ValueHint::DirPath)]
         stash_dir: PathBuf,
     },
@@ -75,6 +77,8 @@ enum Commands {
 
 struct FileToUpdate {
     file_path: walkdir::DirEntry,
+
+    #[cfg(feature = "fanficfare")]
     stash_path: PathBuf,
 }
 
@@ -94,7 +98,9 @@ fn main() {
         Commands::Add { urls } => create_books(work_dir.as_path(), &urls),
         Commands::Update {
             mut paths,
+            #[cfg(feature = "fanficfare")]
             stash,
+            #[cfg(feature = "fanficfare")]
             stash_dir,
         } => {
             if paths.is_empty() {
@@ -103,10 +109,20 @@ fn main() {
 
             let book_files: Vec<FileToUpdate> = paths
                 .into_iter()
-                .flat_map(|p| get_book_files(&p, &p.join(&stash_dir)))
+                .flat_map(|p| {
+                    get_book_files(
+                        &p,
+                        #[cfg(feature = "fanficfare")]
+                        &p.join(&stash_dir),
+                    )
+                })
                 .collect();
 
-            update_books(&book_files, stash);
+            update_books(
+                &book_files,
+                #[cfg(feature = "fanficfare")]
+                stash,
+            );
         }
         Commands::Clean { paths } => paths.iter().for_each(|p| remove_empty_epub(p.as_path())),
         Commands::Completions { shell } => clap_complete::generate(
@@ -146,7 +162,7 @@ fn create_books(dir: &Path, urls: &[String]) {
     bar.finish_and_clear();
 }
 
-fn update_books(book_files: &[FileToUpdate], stash: bool) {
+fn update_books(book_files: &[FileToUpdate], #[cfg(feature = "fanficfare")] stash: bool) {
     let bar = MULTI_PROGRESS.add(get_progress_bar(book_files.len() as u64, 1));
 
     book_files.par_iter().for_each(|file_to_update| {
@@ -157,7 +173,9 @@ fn update_books(book_files: &[FileToUpdate], stash: bool) {
         bar.set_prefix(title.clone());
         match source.update(path) {
             UpdateResult::Updated(n) => bar.println(summary!(n, title, green)),
+            #[cfg(feature = "fanficfare")]
             UpdateResult::Skipped => bar.println(summary!("Skip", title, blue)),
+            #[cfg(feature = "fanficfare")]
             UpdateResult::MoreChapterThanSource(n) => {
                 bar.println(summary!(-i32::from(n), title, red));
                 if stash {
@@ -213,15 +231,29 @@ impl ErrorPrint for MultiProgress {
     }
 }
 
-fn get_book_files(path: &PathBuf, stash_dir: &PathBuf) -> Vec<FileToUpdate> {
+fn get_book_files(
+    path: &PathBuf,
+    #[cfg(feature = "fanficfare")] stash_dir: &PathBuf,
+) -> Vec<FileToUpdate> {
+    #[cfg(not(feature = "fanficfare"))]
+    let stash_dir = PathBuf::new(); // I could not find a more elegant way
     WalkDir::new(path)
         .into_iter()
         .filter_map(std::result::Result::ok)
-        .filter(|e| e.path().parent().is_some_and(|p| *p != *stash_dir))
+        .filter(|e| {
+            e.path().parent().is_some_and(|p| {
+                if cfg!(feature = "fanficfare") {
+                    *p != *stash_dir
+                } else {
+                    true
+                }
+            })
+        })
         .filter(|e| e.file_type().is_file())
         .filter(|e| e.path().extension().map_or(false, |v| v == EPUB))
         .map(|e| FileToUpdate {
             file_path: e,
+            #[cfg(feature = "fanficfare")]
             stash_path: stash_dir.clone(),
         })
         .collect()
