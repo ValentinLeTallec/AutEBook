@@ -14,9 +14,10 @@ use std::path::Path;
 use url::Url;
 
 /// Declare selectors that are only initialised once and add tests to ensure they can be safely unwraped
+/// The syntax is `SELECTOR_NAME: "selector";`
 #[macro_export]
 macro_rules! lazy_selectors {
-    ( $( $selector_name:ident, $selector:expr; )+ ) => {
+    ( $( $selector_name:ident: $selector:expr; )+ ) => {
         $(
         static $selector_name: std::sync::LazyLock<scraper::Selector> =
             std::sync::LazyLock::new(|| scraper::Selector::parse($selector).unwrap());
@@ -37,29 +38,29 @@ macro_rules! lazy_selectors {
 }
 
 lazy_selectors! {
-    CONTENT_SELECTOR, ".chapter-inner.chapter-content";
+    CONTENT_SELECTOR: ".chapter-inner.chapter-content";
 
     // Strange selectors are because RR doesn't have a way to tell if the author's note is
     // at the start or the end in the HTML.
-    AUTHORS_NOTE_START_SELECTOR, "hr + .portlet > .author-note";
-    AUTHORS_NOTE_END_SELECTOR, "div + .portlet > .author-note";
+    AUTHORS_NOTE_START_SELECTOR: "hr + .portlet > .author-note";
+    AUTHORS_NOTE_END_SELECTOR: "div + .portlet > .author-note";
 
-    TITLE_SELECTOR, "h1";
-    AUTHOR_SELECTOR, "h4 a";
-    DESCRIPTION_SELECTOR, ".description > .hidden-content";
-    WATERMARK_SELECTOR, "[class^=cj],[class^=cm]";
+    TITLE_SELECTOR: "h1";
+    AUTHOR_SELECTOR: "h4 a";
+    DESCRIPTION_SELECTOR: ".description > .hidden-content";
+    WATERMARK_SELECTOR: "[class^=cj]:[class^=cm]";
 
-    TITLE_ELEMENT_SELECTOR, "title";
-    BODY_ELEMENT_SELECTOR, "body";
+    TITLE_ELEMENT_SELECTOR: "title";
+    BODY_ELEMENT_SELECTOR: "body";
 
-    EPUB_META_CHAPTER_URL_SELECTOR, "meta[name=chapterurl]";
-    EPUB_META_DATE_PUBLISHED_SELECTOR, "meta[name=published]";
-    EPUB_META_GENERATOR_SELECTOR, "meta[name=generator]";
+    EPUB_META_CHAPTER_URL_SELECTOR: "meta[name=chapterurl]";
+    EPUB_META_DATE_PUBLISHED_SELECTOR: "meta[name=published]";
+    EPUB_META_GENERATOR_SELECTOR: "meta[name=generator]";
 
-    EPUB_CHAPTER_CONTENT_SELECTOR, ".chapter-content";
-    EPUB_AUTHORS_NOTE_START_SELECTOR, ".authors-note-start";
-    EPUB_AUTHORS_NOTE_END_SELECTOR, ".authors-note-end";
-    EPUB_FANFICFARE_AUTHORS_NOTE_SELECTOR, ".author-note-portlet";
+    EPUB_CHAPTER_CONTENT_SELECTOR: ".chapter-content";
+    EPUB_AUTHORS_NOTE_START_SELECTOR: ".authors-note-start";
+    EPUB_AUTHORS_NOTE_END_SELECTOR: ".authors-note-end";
+    EPUB_FANFICFARE_AUTHORS_NOTE_SELECTOR: ".author-note-portlet";
 }
 
 #[derive(Default, Clone, Debug)]
