@@ -54,7 +54,11 @@ fn send_get_request_rec(url: &str) -> Result<Response> {
     }
 
     let user_agent = "AutEBook <https://github.com/ValentinLeTallec/AutEBook>";
-    let response = CLIENT.get(url).header("User-Agent", user_agent).send()?;
+    let response = CLIENT
+        .get(url)
+        .header("User-Agent", user_agent)
+        .send()
+        .map_err(|e| eyre!("{e}, you might not be connected to the internet."))?;
 
     if response.status() == StatusCode::TOO_MANY_REQUESTS && bounce <= 10 {
         BOUNCE.fetch_add(1, Ordering::Relaxed);
