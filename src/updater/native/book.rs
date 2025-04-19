@@ -20,7 +20,8 @@ macro_rules! lazy_selectors {
     ( $( $selector_name:ident: $selector:expr; )+ ) => {
         $(
         static $selector_name: std::sync::LazyLock<scraper::Selector> =
-            std::sync::LazyLock::new(|| scraper::Selector::parse($selector).unwrap());
+            std::sync::LazyLock::new(|| scraper::Selector::parse($selector)
+                .expect("One of the lazy selectors failed, run `cargo test` to find out which"));
         )*
 
         #[cfg(test)]
@@ -48,7 +49,7 @@ lazy_selectors! {
     TITLE_SELECTOR: "h1";
     AUTHOR_SELECTOR: "h4 a";
     DESCRIPTION_SELECTOR: ".description > .hidden-content";
-    WATERMARK_SELECTOR: "[class^=cj]:[class^=cm]";
+    WATERMARK_SELECTOR: "[class^=cj],[class^=cm]";
 
     TITLE_ELEMENT_SELECTOR: "title";
     BODY_ELEMENT_SELECTOR: "body";
