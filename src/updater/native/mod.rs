@@ -25,20 +25,31 @@ impl Download for Book {
     }
 
     fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<String> {
-        let (book, _) = get_book(url, None)?;
-        epub::write(
-            &book,
-            filename
-                .and_then(|f| f.to_str())
-                .map(|f| dir.join(f))
-                .map(|p| p.to_string_lossy().to_string()),
-        )?;
+        let outfile = filename
+            .and_then(|f| f.to_str())
+            .map(|f| dir.join(f))
+            .map(|p| p.to_string_lossy().to_string());
 
-        Ok(book.title)
+        get_book(url, None)
+            .and_then(|(book, _)| epub::write(&book, outfile).map(|()| book.title))
+            .map_err(|e| eyre!("{e} for url {url}"))
     }
 
     fn update(&self, path: &Path) -> UpdateResult {
-        do_update(path).unwrap_or_else(UpdateResult::Error)
+        EpubDoc::new(path)
+            .map_err(|e| eyre!("{e}"))
+            .and_then(|e| e.mdata("source").ok_or_eyre("Could not find url"))
+            .and_then(|url| get_book(&url, Some(path)))
+            .and_then(|(book, result)| {
+                if let UpdateResult::Updated(_) = result {
+                    let outfile = path.to_str().map(String::from);
+                    epub::write(&book, outfile).map(|()| result)
+                } else {
+                    Ok(result)
+                }
+            })
+            .map_err(|e| eyre!("{e} for file {}", path.to_string_lossy()))
+            .unwrap_or_else(UpdateResult::Error)
     }
 }
 
@@ -115,16 +126,4 @@ fn get_book(url: &str, path: Option<&Path>) -> Result<(Book, UpdateResult)> {
             UpdateResult::UpToDate
         },
     ))
-}
-
-fn do_update(path: &Path) -> Result<UpdateResult> {
-    let url = EpubDoc::new(path)?
-        .mdata("source")
-        .ok_or_eyre("Could not find url")?;
-
-    let (book, result) = get_book(&url, Some(path))?;
-    if let UpdateResult::Updated(_) = result {
-        epub::write(&book, path.to_str().map(String::from))?;
-    }
-    Ok(result)
 }

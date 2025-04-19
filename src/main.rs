@@ -250,7 +250,7 @@ fn get_book_files(
             })
         })
         .filter(|e| e.file_type().is_file())
-        .filter(|e| e.path().extension().map_or(false, |v| v == EPUB))
+        .filter(|e| e.path().extension().is_some_and(|v| v == EPUB))
         .map(|e| FileToUpdate {
             file_path: e,
             #[cfg(feature = "fanficfare")]
@@ -264,7 +264,7 @@ fn remove_empty_epub(path: &Path) {
         .into_iter()
         .filter_map(std::result::Result::ok)
         .filter(|e| e.file_type().is_file())
-        .filter(|e| e.path().extension().map_or(false, |v| v == EPUB))
+        .filter(|e| e.path().extension().is_some_and(|v| v == EPUB))
         .filter(|e| e.metadata().map(|m| m.len() == 0).unwrap_or(false)) // File is empty
         .for_each(|f| {
             fs::remove_file(f.path()).unwrap_or_else(|_| {

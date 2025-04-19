@@ -16,7 +16,7 @@ pub const FORBIDDEN_CHARACTERS: [char; 13] = [
     '/', '\\', ':', '*', '?', '"', '<', '>', '|', '%', '"', '[', ']',
 ];
 
-pub fn write(book: &Book, outfile: Option<String>) -> Result<String> {
+pub fn write(book: &Book, outfile: Option<String>) -> Result<()> {
     // Create a temp dir.
     let temp_folder = tempfile::tempdir()?;
 
@@ -122,7 +122,7 @@ pub fn write(book: &Book, outfile: Option<String>) -> Result<String> {
     epub_file.finish()?;
     std::fs::copy(epub_path, &outfile)?;
 
-    Ok(outfile)
+    Ok(())
 }
 
 fn stylesheet(file: &mut impl Write) -> Result<()> {
