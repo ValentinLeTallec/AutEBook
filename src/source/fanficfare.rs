@@ -6,7 +6,6 @@ use eyre::ContextCompat;
 use eyre::{bail, eyre, Result};
 use lazy_regex::regex;
 use serde::Deserialize;
-use std::ffi::OsStr;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -28,7 +27,7 @@ impl FanFicFare {
 }
 
 impl Download for FanFicFare {
-    fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<String> {
+    fn create(&self, dir: &Path, filename: Option<&str>, url: &str) -> Result<String> {
         let cmd = Command::new("fanficfare")
             .arg("--non-interactive")
             .arg("--json-meta")

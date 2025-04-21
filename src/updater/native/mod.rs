@@ -1,5 +1,5 @@
+use std::collections::HashSet;
 use std::path::Path;
-use std::{collections::HashSet, ffi::OsStr};
 
 use crate::{get_progress_bar, ErrorPrint, MULTI_PROGRESS};
 use ::epub::doc::EpubDoc;
@@ -19,9 +19,8 @@ impl Download for Book {
         self.title.clone()
     }
 
-    fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<String> {
+    fn create(&self, dir: &Path, filename: Option<&str>, url: &str) -> Result<String> {
         let outfile = filename
-            .and_then(|f| f.to_str())
             .map(|f| dir.join(f))
             .map(|p| p.to_string_lossy().to_string());
 

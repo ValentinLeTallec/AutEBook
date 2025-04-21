@@ -2,7 +2,7 @@ pub mod native;
 
 use epub::doc::EpubDoc;
 use eyre::{bail, Error, Result};
-use std::{ffi::OsStr, path::Path};
+use std::path::Path;
 
 #[derive(Debug)]
 pub enum UpdateResult {
@@ -26,7 +26,7 @@ pub trait Download {
             .unwrap_or_else(|| format!("{} (No Title)", path.to_string_lossy()))
     }
 
-    fn create(&self, _dir: &Path, _filename: Option<&OsStr>, _url: &str) -> Result<DisplayName> {
+    fn create(&self, _dir: &Path, _filename: Option<&str>, _url: &str) -> Result<DisplayName> {
         bail!("This webnovel does not contain a supported source URL")
     }
 
