@@ -1,7 +1,7 @@
 pub mod native;
 
 use epub::doc::EpubDoc;
-use eyre::{bail, Error, Result};
+use eyre::{Error, Result};
 use std::path::Path;
 
 #[derive(Debug)]
@@ -26,15 +26,6 @@ pub trait Download {
             .unwrap_or_else(|| format!("{} (No Title)", path.to_string_lossy()))
     }
 
-    fn create(&self, _dir: &Path, _filename: Option<&str>, _url: &str) -> Result<DisplayName> {
-        bail!("This webnovel does not contain a supported source URL")
-    }
-
-    fn update(&self, path: &Path) -> UpdateResult {
-        self.do_update(path).unwrap_or_else(UpdateResult::Error)
-    }
-
-    fn do_update(&self, _path: &Path) -> Result<UpdateResult> {
-        Ok(UpdateResult::Unsupported)
-    }
+    fn create(&self, dir: &Path, filename: Option<&str>, url: &str) -> Result<DisplayName>;
+    fn update(&self, path: &Path) -> UpdateResult;
 }

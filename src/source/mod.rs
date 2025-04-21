@@ -4,11 +4,12 @@ mod royalroad;
 use std::path::Path;
 
 use epub::doc::EpubDoc;
+use eyre::{bail, Result};
 use royalroad::RoyalRoad;
 
 #[cfg(feature = "fanficfare")]
 use crate::source::fanficfare::FanFicFare;
-use crate::updater::Download;
+use crate::updater::{Download, UpdateResult};
 
 macro_rules! try_source {
     ($book_source:ident, $url:expr) => {{
@@ -60,5 +61,13 @@ impl Unsupported {
 impl Download for Unsupported {
     fn get_title(&self, _path: &Path) -> String {
         self.message.clone()
+    }
+
+    fn create(&self, _dir: &Path, _filename: Option<&str>, _url: &str) -> Result<String> {
+        bail!("This webnovel does not contain a supported source URL")
+    }
+
+    fn update(&self, _path: &Path) -> UpdateResult {
+        UpdateResult::Unsupported
     }
 }
