@@ -27,11 +27,13 @@ pub fn from_url(url: &str) -> Box<dyn Download> {
 
 #[allow(clippy::map_unwrap_or)]
 pub fn from_path(path: &Path) -> Box<dyn Download> {
-    EpubDoc::new(path)
-        .ok()
-        .and_then(|e| e.mdata("source"))
+    get_url(path)
         .map(|url| from_url(&url))
         .unwrap_or_else(|| Box::new(Unsupported::from_path(path)))
+}
+
+pub fn get_url(path: &Path) -> Option<String> {
+    EpubDoc::new(path).ok().and_then(|e| e.mdata("source"))
 }
 
 pub struct Unsupported {

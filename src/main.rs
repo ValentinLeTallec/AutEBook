@@ -16,7 +16,7 @@ mod updater;
 use crate::updater::UpdateResult;
 use clap::{CommandFactory, Parser, Subcommand};
 use colorful::Colorful;
-use eyre::Error;
+use eyre::{bail, eyre, Error, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
@@ -55,6 +55,17 @@ enum Commands {
         paths: Vec<PathBuf>,
     },
 
+    /// Copy books in `<STASH_DIR>` while adding a timestamp, then recreates books inplace
+    Stash {
+        /// The directory where stashed books are stored.
+        #[clap(short = 'd', long, default_value = "./stashed", value_hint = clap::ValueHint::DirPath)]
+        stash_dir: PathBuf,
+
+        /// List of path to books to be stashed
+        #[clap(num_args = 1..)]
+        paths: Vec<PathBuf>,
+    },
+
     /// Generate a SHELL completion script and print to stdout
     Completions { shell: clap_complete::Shell },
 }
@@ -88,6 +99,7 @@ fn main() {
             "autebooks",
             &mut std::io::stdout(),
         ),
+        Commands::Stash { stash_dir, paths } => stash_and_recreate(&stash_dir, &paths),
     }
 }
 
@@ -190,4 +202,53 @@ fn get_book_files(paths: &[PathBuf]) -> Vec<PathBuf> {
         .filter(|e| e.path().extension().is_some_and(|v| v == EPUB))
         .map(|e| e.path().to_owned())
         .collect()
+}
+
+fn stash_and_recreate(stash_dir: &Path, paths: &[PathBuf]) {
+    let bar = MULTI_PROGRESS.add(get_progress_bar(paths.len() as u64, 1));
+
+    // Create stashing directory
+    if let Err(err) = std::fs::create_dir_all(stash_dir) {
+        bar.eprintln(&err.into());
+        return;
+    };
+
+    get_book_files(paths)
+        .par_iter()
+        .map(|book| -> Result<String> {
+            let path_str = book.to_string_lossy();
+            let parent_dir = book.parent().unwrap_or_else(|| Path::new("./"));
+
+            let original_filestem = book
+                .file_stem()
+                .ok_or_else(|| eyre!("No filename for path {path_str}"))?
+                .to_string_lossy();
+
+            let stashed_filename = format!(
+                "{}_{}.{EPUB}",
+                original_filestem,
+                chrono::Utc::now().format("%Y-%m-%d_%Hh%M")
+            );
+
+            if let Some(url) = source::get_url(book) {
+                std::fs::rename(book, stash_dir.join(stashed_filename))?;
+                bar.set_prefix(format!("{path_str}"));
+
+                // Creation of the new instance of the book
+                source::from_url(&url).create(
+                    parent_dir,
+                    book.file_name().map(|e| e.to_string_lossy()).as_deref(),
+                    &url,
+                )
+            } else {
+                bail!("No url could be found for {path_str}")
+            }
+        })
+        .inspect(|_| bar.inc(1))
+        .for_each(|e| match e {
+            Ok(title) => bar.println(format!("{title:.50}\n")),
+            Err(e) => bar.eprintln(&e),
+        });
+
+    bar.finish_and_clear();
 }
