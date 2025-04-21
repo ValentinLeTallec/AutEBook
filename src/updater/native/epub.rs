@@ -333,6 +333,9 @@ fn clean_html(original_content: &str) -> String {
     // Remove overflow: auto.
     let overflow_regex = regex!(r#"overflow:\s?auto"#);
     content = overflow_regex.replace_all(&content, "").to_string();
+
+    // Remove empty styles
+    content = content.replace(r#" style="""#, "");
     content
 }
 
