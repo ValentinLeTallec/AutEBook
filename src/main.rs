@@ -78,8 +78,7 @@ fn main() {
                 paths.push(work_dir);
             }
 
-            let book_files: Vec<PathBuf> =
-                paths.into_iter().flat_map(|p| get_book_files(&p)).collect();
+            let book_files = get_book_files(&paths);
 
             update_books(&book_files);
         }
@@ -120,7 +119,7 @@ fn create_books(dir: &Path, urls: &[String]) {
     bar.finish_and_clear();
 }
 
-fn update_books(book_files: &[PathBuf]) {
+fn update_books(book_files: &Vec<PathBuf>) {
     let bar = MULTI_PROGRESS.add(get_progress_bar(book_files.len() as u64, 1));
 
     book_files.par_iter().for_each(|path| {
@@ -182,9 +181,10 @@ impl ErrorPrint for MultiProgress {
     }
 }
 
-fn get_book_files(path: &PathBuf) -> Vec<PathBuf> {
-    WalkDir::new(path)
-        .into_iter()
+fn get_book_files(paths: &[PathBuf]) -> Vec<PathBuf> {
+    paths
+        .iter()
+        .flat_map(|path| WalkDir::new(path).into_iter())
         .filter_map(std::result::Result::ok)
         .filter(|e| e.file_type().is_file())
         .filter(|e| e.path().extension().is_some_and(|v| v == EPUB))
