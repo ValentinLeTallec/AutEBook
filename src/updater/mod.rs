@@ -1,11 +1,7 @@
 pub mod native;
 
 use epub::doc::EpubDoc;
-#[cfg(feature = "fanficfare")]
-use eyre::eyre;
 use eyre::{bail, Error, Result};
-#[cfg(feature = "fanficfare")]
-use std::fs;
 use std::{ffi::OsStr, path::Path};
 
 #[derive(Debug)]
@@ -23,9 +19,6 @@ pub enum UpdateResult {
 type DisplayName = String;
 
 pub trait Download {
-    #[cfg(feature = "fanficfare")]
-    fn get_url(&self) -> String;
-
     fn get_title(&self, path: &Path) -> String {
         EpubDoc::new(path)
             .ok()
@@ -43,38 +36,5 @@ pub trait Download {
 
     fn do_update(&self, _path: &Path) -> Result<UpdateResult> {
         Ok(UpdateResult::Unsupported)
-    }
-
-    #[cfg(feature = "fanficfare")]
-    fn stash_and_recreate(&self, book: &Path, stash_folder: &Path) -> Result<()> {
-        let parent_dir = book
-            .parent()
-            .ok_or_else(|| eyre!("Could not retrieve the book's parent directory."))?;
-
-        let original_filename = book
-            .file_name()
-            .ok_or_else(|| eyre!("Could not retrieve the book's filename."))?
-            .to_owned();
-
-        // Stashing of the current instance of the book in an sub-directory
-        let timestamp = chrono::Utc::now().format("_%Y-%m-%d_%Hh%M").to_string();
-        let extension = book
-            .extension()
-            .ok_or_else(|| eyre!("Could not retrieve the book's extension."))?;
-
-        let mut stashed_filename = book
-            .file_stem()
-            .ok_or_else(|| eyre!("Could not retrieve the book's filename."))?
-            .to_owned();
-        stashed_filename.push(timestamp);
-        stashed_filename.push(".");
-        stashed_filename.push(extension);
-
-        fs::create_dir_all(stash_folder)?;
-        fs::rename(book, stash_folder.join(stashed_filename))?;
-
-        // Creation of the new instance of the book
-        self.create(parent_dir, Some(&original_filename), &self.get_url())?;
-        Ok(())
     }
 }

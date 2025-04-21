@@ -17,25 +17,17 @@ struct FanFicFareJson {
     output_filename: String,
 }
 
-pub struct FanFicFare {
-    url: String,
-}
+pub struct FanFicFare {}
 
 impl FanFicFare {
     pub fn new(url: &str) -> Option<Self> {
         URLS.iter()
             .any(|compatible_url| url.contains(compatible_url))
-            .then(|| Self {
-                url: url.to_string(),
-            })
+            .then_some(Self {})
     }
 }
 
 impl Download for FanFicFare {
-    fn get_url(&self) -> String {
-        self.url.clone()
-    }
-
     fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<String> {
         let cmd = Command::new("fanficfare")
             .arg("--non-interactive")

@@ -19,11 +19,6 @@ impl Download for Book {
         self.title.clone()
     }
 
-    #[cfg(feature = "fanficfare")]
-    fn get_url(&self) -> String {
-        self.url.clone()
-    }
-
     fn create(&self, dir: &Path, filename: Option<&OsStr>, url: &str) -> Result<String> {
         let outfile = filename
             .and_then(|f| f.to_str())
