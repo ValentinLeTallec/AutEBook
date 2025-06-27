@@ -16,14 +16,17 @@ mod updater;
 use crate::updater::UpdateResult;
 use clap::{CommandFactory, Parser, Subcommand};
 use colorful::Colorful;
-use eyre::{bail, eyre, Error, Result};
+use eyre::{bail, eyre, Error, OptionExt, Result};
+use ignore::WalkBuilder;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
-use walkdir::WalkDir;
 
 const EPUB: &str = "epub";
+const IGNORE_FILE: &str = ".autignore";
 
 pub static MULTI_PROGRESS: LazyLock<MultiProgress> = LazyLock::new(MultiProgress::new);
 
@@ -51,6 +54,12 @@ enum Commands {
     /// Update specific books, based on path(s) given,
     /// if no path is given it will update the work directory.
     Update {
+        /// Generate a file named `.autignore` containing the path of every unsupported files,
+        /// those files will be ignored during following updates (use the same rules as a
+        /// `.gitignore` and can be edited manually)
+        #[clap(short = 'i', long)]
+        add_unsupported_to_ignore_file: bool,
+
         /// List of directories containing books to update
         paths: Vec<PathBuf>,
     },
@@ -84,14 +93,17 @@ fn main() {
 
     match args.subcommand {
         Commands::Add { urls } => create_books(work_dir.as_path(), &urls),
-        Commands::Update { mut paths } => {
+        Commands::Update {
+            mut paths,
+            add_unsupported_to_ignore_file,
+        } => {
             if paths.is_empty() {
                 paths.push(work_dir);
             }
 
             let book_files = get_book_files(&paths);
 
-            update_books(&book_files);
+            update_books(&book_files, add_unsupported_to_ignore_file);
         }
         Commands::Completions { shell } => clap_complete::generate(
             shell,
@@ -131,7 +143,7 @@ fn create_books(dir: &Path, urls: &[String]) {
     bar.finish_and_clear();
 }
 
-fn update_books(book_files: &Vec<PathBuf>) {
+fn update_books(book_files: &[PathBuf], add_unsupported_to_ignore_file: bool) {
     let bar = MULTI_PROGRESS.add(get_progress_bar(book_files.len() as u64, 1));
 
     book_files.par_iter().for_each(|path| {
@@ -147,12 +159,37 @@ fn update_books(book_files: &Vec<PathBuf>) {
             UpdateResult::MoreChapterThanSource(n) => {
                 bar.println(summary!(-i32::from(n), title, red));
             }
-            UpdateResult::Unsupported | UpdateResult::UpToDate => (),
+            UpdateResult::Unsupported => {
+                if add_unsupported_to_ignore_file {
+                    if let Err(e) = add_to_ignore_file(path) {
+                        MULTI_PROGRESS.eprintln(&eyre!(
+                            "Tried to create .autignore for '{}' got : {e}",
+                            path.to_string_lossy()
+                        ));
+                    }
+                }
+            }
+            UpdateResult::UpToDate => (),
             UpdateResult::Error(e) => bar.eprintln(&e),
         }
         bar.inc(1);
     });
     bar.finish_and_clear();
+}
+
+fn add_to_ignore_file(path: &Path) -> Result<()> {
+    let ignore_file_path = path
+        .parent()
+        .map(|parent| parent.join(IGNORE_FILE))
+        .ok_or_eyre("Could not find parent of path")?;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(ignore_file_path)?;
+    if let Some(file_name) = path.file_name() {
+        writeln!(file, "{}", file_name.to_string_lossy())?;
+    }
+    Ok(())
 }
 
 #[must_use]
@@ -164,6 +201,7 @@ pub fn get_progress_bar(len: u64, show_if_more_than: u64) -> ProgressBar {
     } else {
         ProgressBar::hidden()
     };
+    #[allow(clippy::literal_string_with_formatting_args)]
     let template_progress = ProgressStyle::with_template(if show {
         "\n{prefix}\n[{elapsed}/{duration}] {wide_bar} {pos:>3}/{len:3} ({percent}%)\n{msg}"
     } else {
@@ -194,14 +232,21 @@ impl ErrorPrint for MultiProgress {
 }
 
 fn get_book_files(paths: &[PathBuf]) -> Vec<PathBuf> {
-    paths
-        .iter()
-        .flat_map(|path| WalkDir::new(path).into_iter())
-        .filter_map(std::result::Result::ok)
-        .filter(|e| e.file_type().is_file())
-        .filter(|e| e.path().extension().is_some_and(|v| v == EPUB))
-        .map(|e| e.path().to_owned())
-        .collect()
+    paths.first().map_or_else(Vec::new, |path| {
+        let mut walk_builder = WalkBuilder::new(path);
+        for path in paths.iter().skip(1) {
+            walk_builder.add(path);
+        }
+        walk_builder
+            .add_custom_ignore_filename(IGNORE_FILE)
+            .git_ignore(false)
+            .build()
+            .filter_map(std::result::Result::ok)
+            .filter(|e| e.file_type().is_some_and(|f| f.is_file()))
+            .filter(|e| e.path().extension().is_some_and(|v| v == EPUB))
+            .map(|e| e.path().to_owned())
+            .collect()
+    })
 }
 
 fn stash_and_recreate(stash_dir: &Path, paths: &[PathBuf]) {
