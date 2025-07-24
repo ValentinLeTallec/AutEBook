@@ -161,7 +161,7 @@ impl Book {
             .for_each(|(filename, image)| {
                 if let Err(e) = Cache::write_inline_image(&book, filename, &image) {
                     MULTI_PROGRESS.eprintln(&e);
-                };
+                }
             });
 
         while epub_doc.go_next() {

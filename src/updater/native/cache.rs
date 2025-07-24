@@ -9,7 +9,7 @@ pub struct Cache;
 impl Cache {
     fn cache_path() -> eyre::Result<PathBuf> {
         let home_dir = dirs::home_dir().ok_or_else(|| eyre!("No home directory"))?;
-        let cache_dir = home_dir.join(".cache/rr-to-epub");
+        let cache_dir = home_dir.join(".cache/AutEBook");
         std::fs::create_dir_all(&cache_dir)?;
         Ok(cache_dir)
     }

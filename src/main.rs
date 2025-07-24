@@ -211,7 +211,7 @@ fn stash_and_recreate(stash_dir: &Path, paths: &[PathBuf]) {
     if let Err(err) = std::fs::create_dir_all(stash_dir) {
         bar.eprintln(&err.into());
         return;
-    };
+    }
 
     get_book_files(paths)
         .par_iter()

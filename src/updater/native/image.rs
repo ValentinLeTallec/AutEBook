@@ -196,7 +196,7 @@ impl ResizableImageFormat {
             ))?,
             Self::Jpeg => image
                 .write_with_encoder(JpegEncoder::new_with_quality(Cursor::new(&mut buffer), 80))?,
-        };
+        }
         Ok(buffer)
     }
 }

@@ -462,7 +462,10 @@ fn content_opf(
                     .attr("href", &format!("images/{}", &filename))
                     .attr(
                         "media-type",
-                        &format!("image/{}", filename.split('.').last().unwrap_or("jpeg")),
+                        &format!(
+                            "image/{}",
+                            filename.split('.').next_back().unwrap_or("jpeg")
+                        ),
                     )
                     .into(),
                 XmlEvent::end_element().into(),

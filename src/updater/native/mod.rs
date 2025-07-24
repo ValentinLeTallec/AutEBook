@@ -101,7 +101,7 @@ fn get_book(url: &str, path: Option<&Path>) -> Result<(Book, UpdateResult)> {
                     chapter.title,
                     e
                 ));
-            };
+            }
             bar.inc(1);
         });
     bar.finish_and_clear();
