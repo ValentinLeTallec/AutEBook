@@ -17,18 +17,13 @@ pub const FORBIDDEN_CHARACTERS: [char; 13] = [
 ];
 
 pub fn write(book: &Book, outfile: Option<String>) -> Result<()> {
-    // Create a temp dir.
-    let temp_folder = tempfile::tempdir()?;
-
     // Choose the filename.
     let outfile = outfile
         .unwrap_or_else(|| format!("{}.epub", book.title.replace(FORBIDDEN_CHARACTERS, "_")));
 
     // Open the file.
-    let epub_path = temp_folder
-        .path()
-        .join(Uuid::new_v4().to_string())
-        .with_extension("epub");
+    let epub_path = format!("{}_{}.part", outfile, Uuid::new_v4());
+
     let file = std::fs::File::create(&epub_path)?;
     let mut epub_file = zip::ZipWriter::new(file);
 
@@ -120,7 +115,7 @@ pub fn write(book: &Book, outfile: Option<String>) -> Result<()> {
 
     // Finish and copy to user destination.
     epub_file.finish()?;
-    std::fs::copy(epub_path, &outfile)?;
+    std::fs::rename(epub_path, outfile)?;
 
     Ok(())
 }

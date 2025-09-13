@@ -43,7 +43,6 @@ reqwest = { version = "0.12.22", default-features = false, features = [
   "rustls-tls-webpki-roots",
   "blocking",
 ] }
-tempfile = "3.20.0"
 uuid = { version = "1.17.0", features = ["fast-rng", "v4"] }
 scraper = "0.23.1"
 dirs = "6.0.0"
