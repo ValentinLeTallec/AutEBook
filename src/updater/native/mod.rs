@@ -2,9 +2,8 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use crate::{get_progress_bar, ErrorPrint, MULTI_PROGRESS};
-use ::epub::doc::EpubDoc;
 use book::Book;
-use eyre::{eyre, OptionExt, Result};
+use eyre::{eyre, Result};
 
 use super::{Download, UpdateResult};
 
@@ -24,16 +23,13 @@ impl Download for Book {
             .map(|f| dir.join(f))
             .map(|p| p.to_string_lossy().to_string());
 
-        get_book(url, None)
+        get_book(self, None)
             .and_then(|(book, _)| epub::write(&book, outfile).map(|()| book.title))
             .map_err(|e| eyre!("{e} for url {url}"))
     }
 
     fn update(&self, path: &Path) -> UpdateResult {
-        EpubDoc::new(path)
-            .map_err(|e| eyre!("{e}"))
-            .and_then(|e| e.mdata("source").ok_or_eyre("Could not find url"))
-            .and_then(|url| get_book(&url, Some(path)))
+        get_book(self, Some(path))
             .and_then(|(book, result)| {
                 if let UpdateResult::Updated(_) = result {
                     let outfile = path.to_str().map(String::from);
@@ -47,9 +43,8 @@ impl Download for Book {
     }
 }
 
-fn get_book(url: &str, path: Option<&Path>) -> Result<(Book, UpdateResult)> {
-    // Do the initial metadata fetch of the book.
-    let mut fetched_book = Book::fetch_without_chapter_content(url)?;
+fn get_book(book: &Book, path: Option<&Path>) -> Result<(Book, UpdateResult)> {
+    let mut fetched_book = book.clone();
 
     // Check the cache.
     let mut current_book = path
