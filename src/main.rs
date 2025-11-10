@@ -16,7 +16,7 @@ mod updater;
 use crate::updater::UpdateResult;
 use clap::{CommandFactory, Parser, Subcommand};
 use colorful::Colorful;
-use eyre::{bail, eyre, Error, OptionExt, Result};
+use eyre::{eyre, Error, OptionExt, Result};
 use ignore::WalkBuilder;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
@@ -64,6 +64,7 @@ enum Commands {
         paths: Vec<PathBuf>,
     },
 
+    #[cfg(feature = "fanficfare")]
     /// Copy books in `<STASH_DIR>` while adding a timestamp, then recreates books inplace
     Stash {
         /// The directory where stashed books are stored.
@@ -111,6 +112,7 @@ fn main() {
             "autebooks",
             &mut std::io::stdout(),
         ),
+        #[cfg(feature = "fanficfare")]
         Commands::Stash { stash_dir, paths } => stash_and_recreate(&stash_dir, &paths),
     }
 }
@@ -249,6 +251,7 @@ fn get_book_files(paths: &[PathBuf]) -> Vec<PathBuf> {
     })
 }
 
+#[cfg(feature = "fanficfare")]
 fn stash_and_recreate(stash_dir: &Path, paths: &[PathBuf]) {
     let bar = MULTI_PROGRESS.add(get_progress_bar(paths.len() as u64, 1));
 
@@ -286,7 +289,7 @@ fn stash_and_recreate(stash_dir: &Path, paths: &[PathBuf]) {
                     &url,
                 )
             } else {
-                bail!("No url could be found for {path_str}")
+                eyre::bail!("No url could be found for {path_str}")
             }
         })
         .inspect(|_| bar.inc(1))
