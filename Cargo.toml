@@ -14,8 +14,9 @@ name = "autebooks"
 path = "src/main.rs"
 
 [features]
-# default-feature = ["fanficfare"]
+default = ["koreader"]
 fanficfare = []
+koreader = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -10,6 +10,8 @@
     clippy::use_debug
 )]
 #![allow(clippy::multiple_crate_versions)]
+#[cfg(feature = "koreader")]
+mod koreader;
 mod source;
 mod updater;
 
@@ -60,6 +62,11 @@ enum Commands {
         #[clap(short = 'i', long)]
         add_unsupported_to_ignore_file: bool,
 
+        #[cfg(feature = "koreader")]
+        /// Change Koreader metadata file : if `percent_finished` equals 100% and the book get updated, set `percent_finished` to 99%  
+        #[clap(short = 'k', long)]
+        update_koreader_meta: bool,
+
         /// List of directories containing books to update
         paths: Vec<PathBuf>,
     },
@@ -97,6 +104,8 @@ fn main() {
         Commands::Update {
             mut paths,
             add_unsupported_to_ignore_file,
+            #[cfg(feature = "koreader")]
+            update_koreader_meta,
         } => {
             if paths.is_empty() {
                 paths.push(work_dir);
@@ -104,7 +113,12 @@ fn main() {
 
             let book_files = get_book_files(&paths);
 
-            update_books(&book_files, add_unsupported_to_ignore_file);
+            update_books(
+                &book_files,
+                add_unsupported_to_ignore_file,
+                #[cfg(feature = "koreader")]
+                update_koreader_meta,
+            );
         }
         Commands::Completions { shell } => clap_complete::generate(
             shell,
@@ -145,7 +159,11 @@ fn create_books(dir: &Path, urls: &[String]) {
     bar.finish_and_clear();
 }
 
-fn update_books(book_files: &[PathBuf], add_unsupported_to_ignore_file: bool) {
+fn update_books(
+    book_files: &[PathBuf],
+    add_unsupported_to_ignore_file: bool,
+    #[cfg(feature = "koreader")] update_koreader_meta: bool,
+) {
     let bar = MULTI_PROGRESS.add(get_progress_bar(book_files.len() as u64, 1));
 
     book_files.par_iter().for_each(|path| {
@@ -154,7 +172,13 @@ fn update_books(book_files: &[PathBuf], add_unsupported_to_ignore_file: bool) {
 
         bar.set_prefix(title.clone());
         match source.update(path) {
-            UpdateResult::Updated(n) => bar.println(summary!(n, title, green)),
+            UpdateResult::Updated(n) => {
+                bar.println(summary!(n, title, green));
+                #[cfg(feature = "koreader")]
+                if update_koreader_meta {
+                    koreader::change_progression_to_99_percent(path);
+                }
+            }
             #[cfg(feature = "fanficfare")]
             UpdateResult::Skipped => bar.println(summary!("Skip", title, blue)),
             #[cfg(feature = "fanficfare")]
