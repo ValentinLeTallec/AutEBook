@@ -1,15 +1,3 @@
-#![warn(
-    clippy::all,
-    clippy::pedantic,
-    clippy::nursery,
-    clippy::cargo,
-    clippy::unwrap_used,
-    clippy::expect_used,
-    // clippy::missing_docs_in_private_items,
-    clippy::wildcard_enum_match_arm,
-    clippy::use_debug
-)]
-#![allow(clippy::multiple_crate_versions)]
 #[cfg(feature = "koreader")]
 mod koreader;
 mod source;
