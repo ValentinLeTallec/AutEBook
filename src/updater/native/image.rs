@@ -6,7 +6,6 @@ use scraper::Html;
 use std::io::Cursor;
 use std::path::Path;
 use url::Url;
-use webp::Decoder;
 
 use crate::lazy_selectors;
 use crate::updater::native::epub::FORBIDDEN_CHARACTERS;
@@ -165,15 +164,9 @@ impl ManagedImageFormat {
 impl ResizableImageFormat {
     /// Resize the image to max width of 600px and re-encode WebP to PNG.
     pub fn rezise(&self, bytes: &bytes::Bytes) -> Result<Vec<u8>> {
-        let image = match self {
-            Self::Webp => Decoder::new(bytes)
-                .decode()
-                .ok_or_else(|| eyre!("Image is not a valid WebP"))?
-                .to_image(),
-            Self::Png | Self::Jpeg => ImageReader::new(Cursor::new(&bytes))
-                .with_guessed_format()?
-                .decode()?,
-        };
+        let image = ImageReader::new(Cursor::new(&bytes))
+            .with_guessed_format()?
+            .decode()?;
 
         // Resize to max width of 600px.
         let width = image.width();
