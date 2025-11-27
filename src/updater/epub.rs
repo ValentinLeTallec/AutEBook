@@ -1,4 +1,4 @@
-use crate::updater::native::image;
+use crate::updater::image;
 use crate::{ErrorPrint, MULTI_PROGRESS};
 
 use eyre::{eyre, Result};
@@ -392,7 +392,7 @@ fn content_opf(
             XmlEvent::characters(&book.description),
             XmlEvent::end_element().into(),
             XmlEvent::start_element("dc:date").into(),
-            XmlEvent::characters(&book.date_published),
+            XmlEvent::characters(&book.date_published.to_rfc3339()),
             XmlEvent::end_element().into(),
             XmlEvent::start_element("dc:identifier")
                 .attr("id", "bookid")
@@ -606,7 +606,7 @@ fn toc_ncx(book: &Book, file: &mut impl Write) -> Result<()> {
             XmlEvent::start_element("head").into(),
             XmlEvent::start_element("meta")
                 .attr("name", "dtb:uid")
-                .attr("content", &format!("{}", book.id))
+                .attr("content", &book.id)
                 .into(),
             XmlEvent::end_element().into(),
             XmlEvent::start_element("meta")

@@ -9,7 +9,7 @@ use royalroad::RoyalRoad;
 
 #[cfg(feature = "fanficfare")]
 use crate::source::fanficfare::FanFicFare;
-use crate::updater::{Download, UpdateResult};
+use crate::updater::{UpdateResult, WebnovelProvider};
 
 macro_rules! try_source {
     ($book_source:ident, $url:expr) => {{
@@ -19,7 +19,7 @@ macro_rules! try_source {
     }};
 }
 
-pub fn from_url(url: &str) -> Box<dyn Download> {
+pub fn from_url(url: &str) -> Box<dyn WebnovelProvider> {
     try_source!(RoyalRoad, url);
     #[cfg(feature = "fanficfare")]
     try_source!(FanFicFare, url);
@@ -27,7 +27,7 @@ pub fn from_url(url: &str) -> Box<dyn Download> {
 }
 
 #[expect(clippy::map_unwrap_or)]
-pub fn from_path(path: &Path) -> Box<dyn Download> {
+pub fn from_path(path: &Path) -> Box<dyn WebnovelProvider> {
     get_url(path)
         .map(|url| from_url(&url))
         .unwrap_or_else(|| Box::new(Unsupported::from_path(path)))
@@ -58,7 +58,7 @@ impl Unsupported {
     }
 }
 
-impl Download for Unsupported {
+impl WebnovelProvider for Unsupported {
     fn get_title(&self, _path: &Path) -> String {
         self.message.clone()
     }

@@ -8,7 +8,7 @@ use std::path::Path;
 use url::Url;
 
 use crate::lazy_selectors;
-use crate::updater::native::epub::FORBIDDEN_CHARACTERS;
+use crate::updater::epub::FORBIDDEN_CHARACTERS;
 
 lazy_selectors! {IMAGE_SELECTOR: "img";}
 

@@ -8,27 +8,13 @@ use chrono::{DateTime, Utc};
 use derive_more::derive::Debug;
 use epub::doc::EpubDoc;
 use eyre::{eyre, Result};
-use lazy_regex::regex;
 use scraper::Html;
-use serde::{Deserialize, Serialize};
 use std::path::Path;
 use url::Url;
+use uuid::Uuid;
 
 lazy_selectors! {
-    CONTENT_SELECTOR: ".chapter-inner.chapter-content";
-
-    // Strange selectors are because RR doesn't have a way to tell if the author's note is
-    // at the start or the end in the HTML.
-    AUTHORS_NOTE_START_SELECTOR: "hr + .portlet > .author-note";
-    AUTHORS_NOTE_END_SELECTOR: "div + .portlet > .author-note";
-
-    TITLE_SELECTOR: "h1";
-    AUTHOR_SELECTOR: "h4 a";
-    DESCRIPTION_SELECTOR: ".description > .hidden-content";
-    WATERMARK_SELECTOR: "[class^=cj],[class^=cm]";
-
-    TITLE_ELEMENT_SELECTOR: "title";
-    BODY_ELEMENT_SELECTOR: "body";
+    EPUB_CHAPTER_TITLE_SELECTOR: "title";
 
     EPUB_META_CHAPTER_URL_SELECTOR: "meta[name=chapterurl]";
     EPUB_META_DATE_PUBLISHED_SELECTOR: "meta[name=published]";
@@ -37,85 +23,42 @@ lazy_selectors! {
     EPUB_CHAPTER_CONTENT_SELECTOR: ".chapter-content";
     EPUB_AUTHORS_NOTE_START_SELECTOR: ".authors-note-start";
     EPUB_AUTHORS_NOTE_END_SELECTOR: ".authors-note-end";
+
+    EPUB_FANFICFARE_CHAPTER_CONTENT_SELECTOR: "body";
     EPUB_FANFICFARE_AUTHORS_NOTE_SELECTOR: ".author-note-portlet";
 }
 
 #[derive(Default, Clone, Debug)]
 pub struct Book {
-    pub id: u32,
+    pub id: String,
     pub url: String,
     pub title: String,
     pub author: String,
     #[debug("{description:50?}")]
     pub description: String,
-    pub date_published: String,
+    pub date_published: DateTime<Utc>,
     pub cover_url: String,
     pub chapters: Vec<Chapter>,
 }
+
 impl Book {
-    pub fn fetch_without_chapter_content(url: &str) -> Result<Self> {
-        // Cover in script tag: window.fictionCover = "...";
-        let cover_regex = regex!(r#"window\.fictionCover = "(.*)";"#);
-        // Chapters array in script tag: window.chapters = [...];
-        let chapters_regex = regex!(r"window\.chapters = (\[.*]);");
-
-        let response = request::get_text(url)?;
-
-        // Parse book metadata.
-        let parsed = Html::parse_document(&response);
-        let title = parsed
-            .get_inner_html_of(&TITLE_SELECTOR)
-            .ok_or_else(|| eyre!("No title found"))?;
-
-        let author = parsed
-            .get_inner_html_of(&AUTHOR_SELECTOR)
-            .unwrap_or_else(|| String::from("<unknown>"));
-
-        let description = parsed
-            .get_inner_html_of(&DESCRIPTION_SELECTOR)
-            .unwrap_or_default();
-
-        // Parse chapter metadata.
-        let cover = cover_regex
-            .captures(&response)
-            .ok_or_else(|| eyre!("No cover found"))?[1]
-            .to_string();
-        let chapters = chapters_regex
-            .captures(&response)
-            .ok_or_else(|| eyre!("No chapters found"))?[1]
-            .to_string();
-        let chapters: Vec<Chapter> = serde_json::from_str::<Vec<RoyalRoadChapter>>(&chapters)?
-            .iter()
-            .map(RoyalRoadChapter::to_chapter)
-            .collect();
-
-        Ok(Self {
-            id: Self::get_id_from_url(url)?,
-            url: url.to_string(),
-            cover_url: cover,
-            title,
-            author,
-            description,
-            date_published: chapters
-                .first()
-                .ok_or_else(|| eyre!("No chapter"))?
-                .date_published
-                .to_rfc3339(),
-            chapters,
-        })
-    }
-
     pub fn from_path(path: &Path) -> Result<Self> {
         let now = chrono::Utc::now();
         let mut epub_doc = EpubDoc::new(path)?;
         let url = epub_doc.mdata("source").unwrap_or_default();
         let mut book = Self {
-            id: Self::get_id_from_url(&url)?,
+            id: epub_doc
+                .mdata("identifier")
+                .unwrap_or_else(|| Uuid::new_v4().to_string()),
             url,
             title: epub_doc.mdata("title").unwrap_or_default(),
             author: epub_doc.mdata("creator").unwrap_or_default(),
             description: epub_doc.mdata("description").unwrap_or_default(),
-            date_published: epub_doc.mdata("date").unwrap_or_else(|| now.to_rfc3339()),
+            date_published: epub_doc
+                .mdata("date")
+                .and_then(|d| DateTime::parse_from_rfc3339(&d).ok())
+                .map(|d| d.to_utc())
+                .unwrap_or(now),
             cover_url: String::new(),
             chapters: Vec::new(),
         };
@@ -163,7 +106,7 @@ impl Book {
 
     pub fn clone_without_chapters(&self) -> Self {
         Self {
-            id: self.id,
+            id: self.id.clone(),
             url: self.url.clone(),
             title: self.title.clone(),
             author: self.author.clone(),
@@ -188,38 +131,6 @@ impl Book {
         Cache::write_inline_image(self, filename, &buffer)?;
 
         Ok(buffer)
-    }
-
-    fn get_id_from_url(url: &str) -> Result<u32, eyre::Error> {
-        let url = Url::parse(url)?;
-        let id = url
-            .path_segments()
-            .and_then(|mut s| s.nth(1))
-            .and_then(|f| f.parse().ok())
-            .ok_or_else(|| eyre!("Invalid book URL: {url}"))?;
-        Ok(id)
-    }
-}
-
-#[derive(Default, Clone, Debug, Serialize, Deserialize)]
-pub struct RoyalRoadChapter {
-    pub id: u32,
-    pub order: u32,
-    pub date: DateTime<Utc>,
-    pub title: String,
-    pub url: String,
-}
-impl RoyalRoadChapter {
-    pub fn to_chapter(&self) -> Chapter {
-        Chapter {
-            identifier: self.id.to_string(),
-            date_published: self.date,
-            title: self.title.clone(),
-            url: format!("https://www.royalroad.com{}", self.url),
-            content: None,
-            authors_note_start: None,
-            authors_note_end: None,
-        }
     }
 }
 
@@ -249,7 +160,7 @@ impl Chapter {
         let parsed = Html::parse_document(xhtml);
 
         let title = parsed
-            .get_inner_html_of(&TITLE_ELEMENT_SELECTOR)
+            .get_inner_html_of(&EPUB_CHAPTER_TITLE_SELECTOR)
             .unwrap_or_default();
 
         let url = parsed
@@ -259,8 +170,8 @@ impl Chapter {
         let date_published = parsed
             .get_meta_content_of(&EPUB_META_DATE_PUBLISHED_SELECTOR)
             .and_then(|d| DateTime::parse_from_rfc3339(&d).ok())
-            .unwrap_or_else(|| now.into())
-            .into();
+            .map(|d| d.to_utc())
+            .unwrap_or(now);
 
         let identifier: String = Url::parse(&url)
             .ok()
@@ -294,29 +205,6 @@ impl Chapter {
             authors_note_end,
         }
     }
-
-    pub fn update_chapter_content(&mut self) -> Result<()> {
-        if self.content.is_some() {
-            return Ok(());
-        }
-
-        let text = request::get_text(&self.url)?;
-
-        let mut parsed = Html::parse_document(&text);
-
-        remove_royal_road_warnings(&mut parsed);
-
-        // Parse content.
-        self.content = parsed.get_inner_html_of(&CONTENT_SELECTOR);
-
-        // Parse starting author note.
-        self.authors_note_start = parsed.get_inner_html_of(&AUTHORS_NOTE_START_SELECTOR);
-
-        // Parse ending author note.
-        self.authors_note_end = parsed.get_inner_html_of(&AUTHORS_NOTE_END_SELECTOR);
-
-        Ok(())
-    }
 }
 
 /// This fonction allows us to have a compatibility layer over chapters generated by Fanficfare
@@ -331,7 +219,7 @@ fn extract_from_fanficfare_generated_chapter(
     let authors_note_start = notes_iter.next().map(|e| e.inner_html());
 
     let content = parsed
-        .get_inner_html_of(&BODY_ELEMENT_SELECTOR)
+        .get_inner_html_of(&EPUB_FANFICFARE_CHAPTER_CONTENT_SELECTOR)
         .map(|e| e.replace(&format!("<h3 class=\"fff_chapter_title\">{title}</h3>"), ""))
         .map(|e| {
             authors_note_start
@@ -344,20 +232,4 @@ fn extract_from_fanficfare_generated_chapter(
                 .map_or(e.clone(), |note| e.replace(note, ""))
         });
     (content, authors_note_start, authors_note_end)
-}
-
-/// Remove royalroad warnings
-/// Please don't use this tool to re-publish authors' works without their permission.
-fn remove_royal_road_warnings(parsed: &mut Html) {
-    let bad_paragraphs = parsed
-        .select(&WATERMARK_SELECTOR)
-        .filter(|e| e.inner_html().len() < 200)
-        .map(|e| e.id())
-        .collect::<Vec<_>>();
-
-    for id in bad_paragraphs {
-        if let Some(mut node) = parsed.tree.get_mut(id) {
-            node.detach();
-        }
-    }
 }

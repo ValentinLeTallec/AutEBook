@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use bytes::Bytes;
 use eyre::eyre;
 
-use crate::updater::native::book::Book;
+use crate::updater::book::Book;
 
 pub struct Cache;
 impl Cache {
@@ -15,7 +15,7 @@ impl Cache {
     }
 
     pub fn write_inline_image(book: &Book, filename: &str, image: &[u8]) -> eyre::Result<()> {
-        let cache_dir = Self::cache_path()?.join(book.id.to_string());
+        let cache_dir = Self::cache_path()?.join(&book.id);
         std::fs::create_dir_all(&cache_dir)?;
 
         // Write the image to the cache.
@@ -26,7 +26,7 @@ impl Cache {
 
     pub fn read_inline_image(book: &Book, filename: &str) -> eyre::Result<Option<Bytes>> {
         let cache_dir = Self::cache_path()?;
-        let cache_file = cache_dir.join(book.id.to_string()).join(filename);
+        let cache_file = cache_dir.join(&book.id).join(filename);
         if !cache_file.exists() {
             return Ok(None);
         }

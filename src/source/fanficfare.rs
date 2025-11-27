@@ -1,5 +1,5 @@
-use crate::updater::Download;
 use crate::updater::UpdateResult;
+use crate::updater::WebnovelProvider;
 
 use epub::doc::EpubDoc;
 use eyre::ContextCompat;
@@ -16,17 +16,17 @@ struct FanFicFareJson {
     output_filename: String,
 }
 
-pub struct FanFicFare {}
+pub struct FanFicFare;
 
 impl FanFicFare {
     pub fn new(url: &str) -> Option<Self> {
         URLS.iter()
             .any(|compatible_url| url.contains(compatible_url))
-            .then_some(Self {})
+            .then_some(Self)
     }
 }
 
-impl Download for FanFicFare {
+impl WebnovelProvider for FanFicFare {
     fn create(&self, dir: &Path, filename: Option<&str>, url: &str) -> Result<String> {
         let cmd = Command::new("fanficfare")
             .arg("--non-interactive")
@@ -71,55 +71,59 @@ impl Download for FanFicFare {
         epub_doc.mdata("title").ok_or_else(|| eyre!("No title"))
     }
 
-    fn do_update(&self, path: &Path) -> Result<UpdateResult> {
-        let updating = regex!(r"^Updating .*, URL: .*$");
-        let up_to_date = regex!(r"^.* already contains \d+ chapters\.$");
-        let do_update = regex!(r"^Do update - epub\((\d+)\) vs url\((\d+)\)$");
-        let more_chapter_than_source =
-            regex!(r"^.* contains (\d+) chapters, more than source: (\d+)\.$");
-        let skipped = " - Skipping";
-
-        let cmd = Command::new("fanficfare")
-            .arg("--non-interactive")
-            .arg("--update-epub")
-            .arg("--update-cover")
-            .arg(path)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-
-        let stdout = cmd.stdout.wrap_err(eyre!("No stdout"))?;
-        let stderr = cmd.stderr.wrap_err(eyre!("No stderr"))?;
-        let update_result = BufReader::new(stderr)
-            .lines()
-            .chain(BufReader::new(stdout).lines())
-            .map_while(Result::ok)
-            .filter(|line| updating.captures(line).is_none())
-            .find_map(|line| {
-                if up_to_date.captures(&line).is_some() {
-                    return Some(UpdateResult::UpToDate);
-                }
-                if let Some(c) = do_update.captures(&line) {
-                    let nb_chapter_epub = &c[1].parse::<u16>().ok()?;
-                    let nb_chapter_url = &c[2].parse::<u16>().ok()?;
-                    return Some(UpdateResult::Updated(nb_chapter_url - nb_chapter_epub));
-                }
-                if let Some(c) = more_chapter_than_source.captures(&line) {
-                    let nb_chapter_epub = &c[1].parse::<u16>().ok()?;
-                    let nb_chapter_url = &c[2].parse::<u16>().ok()?;
-                    return Some(UpdateResult::MoreChapterThanSource(
-                        nb_chapter_epub - nb_chapter_url,
-                    ));
-                }
-                if line.ends_with(skipped) {
-                    return Some(UpdateResult::Skipped);
-                }
-                None
-            })
-            .wrap_err(eyre!("Could not parse FanFicFare output"))?;
-
-        Ok(update_result)
+    fn update(&self, path: &Path) -> UpdateResult {
+        do_update(path).into()
     }
+}
+
+fn do_update(path: &Path) -> Result<UpdateResult> {
+    let updating = regex!(r"^Updating .*, URL: .*$");
+    let up_to_date = regex!(r"^.* already contains \d+ chapters\.$");
+    let do_update = regex!(r"^Do update - epub\((\d+)\) vs url\((\d+)\)$");
+    let more_chapter_than_source =
+        regex!(r"^.* contains (\d+) chapters, more than source: (\d+)\.$");
+    let skipped = " - Skipping";
+
+    let cmd = Command::new("fanficfare")
+        .arg("--non-interactive")
+        .arg("--update-epub")
+        .arg("--update-cover")
+        .arg(path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    let stdout = cmd.stdout.wrap_err(eyre!("No stdout"))?;
+    let stderr = cmd.stderr.wrap_err(eyre!("No stderr"))?;
+    let update_result = BufReader::new(stderr)
+        .lines()
+        .chain(BufReader::new(stdout).lines())
+        .map_while(Result::ok)
+        .filter(|line| updating.captures(line).is_none())
+        .find_map(|line| {
+            if up_to_date.captures(&line).is_some() {
+                return Some(UpdateResult::UpToDate);
+            }
+            if let Some(c) = do_update.captures(&line) {
+                let nb_chapter_epub = &c[1].parse::<u16>().ok()?;
+                let nb_chapter_url = &c[2].parse::<u16>().ok()?;
+                return Some(UpdateResult::Updated(nb_chapter_url - nb_chapter_epub));
+            }
+            if let Some(c) = more_chapter_than_source.captures(&line) {
+                let nb_chapter_epub = &c[1].parse::<u16>().ok()?;
+                let nb_chapter_url = &c[2].parse::<u16>().ok()?;
+                return Some(UpdateResult::MoreChapterThanSource(
+                    nb_chapter_epub - nb_chapter_url,
+                ));
+            }
+            if line.ends_with(skipped) {
+                return Some(UpdateResult::Skipped);
+            }
+            None
+        })
+        .wrap_err(eyre!("Could not parse FanFicFare output"))?;
+
+    Ok(update_result)
 }
 
 const URLS: [&str; 166] = [
