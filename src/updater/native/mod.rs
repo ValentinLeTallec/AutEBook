@@ -6,15 +6,26 @@ use book::Book;
 use eyre::{eyre, Result};
 
 use super::{Download, UpdateResult};
+use crate::source::royalroad::RoyalRoad;
 
 pub mod book;
 mod cache;
 mod epub;
 mod image;
 
-impl Download for Book {
+impl Download for RoyalRoad {
     fn get_title(&self, _path: &Path) -> String {
         self.title.clone()
+    }
+
+    fn already_up_to_date(&self, current_book: Option<&Book>) -> bool {
+        current_book.as_ref().is_some_and(|b| {
+            b.chapters
+                .iter()
+                .map(|e| e.date_published)
+                .max()
+                .is_some_and(|max| max >= self.last_time_published)
+        })
     }
 
     fn create(&self, dir: &Path, filename: Option<&str>, url: &str) -> Result<String> {
@@ -22,13 +33,19 @@ impl Download for Book {
             .map(|f| dir.join(f))
             .map(|p| p.to_string_lossy().to_string());
 
-        get_book(self, None)
+        get_book(url, None)
             .and_then(|(book, _)| epub::write(&book, outfile).map(|()| book.title))
             .map_err(|e| eyre!("{e} for url {url}"))
     }
 
     fn update(&self, path: &Path) -> UpdateResult {
-        get_book(self, Some(path))
+        // Check the cache.
+        let current_book = Book::from_path(path).ok();
+        if self.already_up_to_date(current_book.as_ref()) {
+            return UpdateResult::UpToDate;
+        }
+
+        get_book(&self.url, current_book)
             .and_then(|(book, result)| {
                 if let UpdateResult::Updated(_) = result {
                     let outfile = path.to_str().map(String::from);
@@ -42,13 +59,12 @@ impl Download for Book {
     }
 }
 
-fn get_book(book: &Book, path: Option<&Path>) -> Result<(Book, UpdateResult)> {
-    let mut fetched_book = book.clone();
+fn get_book(url: &str, current_book: Option<Book>) -> Result<(Book, UpdateResult)> {
+    // Do the initial metadata fetch of the book.
+    let mut fetched_book =
+        Book::fetch_without_chapter_content(url).inspect_err(|e| MULTI_PROGRESS.eprintln(e))?;
 
-    // Check the cache.
-    let mut current_book = path
-        .and_then(|path| Book::from_path(path).ok())
-        .unwrap_or_else(|| fetched_book.clone_without_chapters());
+    let mut current_book = current_book.unwrap_or_else(|| fetched_book.clone_without_chapters());
 
     // Determine chapters which already exist but have been updated
     // (same identifier, newer date_published)

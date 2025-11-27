@@ -1,6 +1,6 @@
 #[cfg(feature = "fanficfare")]
 mod fanficfare;
-mod royalroad;
+pub mod royalroad;
 use std::path::Path;
 
 use epub::doc::EpubDoc;
