@@ -182,7 +182,7 @@ dependencies = [
  "ureq",
  "url",
  "uuid",
- "xml-rs 1.0.0",
+ "xml",
  "zip 6.0.0",
 ]
 
@@ -622,7 +622,7 @@ dependencies = [
  "percent-encoding",
  "regex",
  "thiserror",
- "xml-rs 0.8.28",
+ "xml-rs",
  "zip 3.0.0",
 ]
 
@@ -2552,15 +2552,6 @@ name = "xml-rs"
 version = "0.8.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
-
-[[package]]
-name = "xml-rs"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3a56132a0d6ecbe77352edc10232f788fc4ceefefff4cab784a98e0e16b6b51"
-dependencies = [
- "xml",
-]
 
 [[package]]
 name = "y4m"
