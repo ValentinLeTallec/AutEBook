@@ -215,7 +215,7 @@ pub fn get_progress_bar(len: u64, show_if_more_than: u64) -> ProgressBar {
     } else {
         ProgressBar::hidden()
     };
-    #[allow(clippy::literal_string_with_formatting_args)]
+    #[expect(clippy::literal_string_with_formatting_args)]
     let template_progress = ProgressStyle::with_template(if show {
         "\n{prefix}\n[{elapsed}/{duration}] {wide_bar} {pos:>3}/{len:3} ({percent}%)\n{msg}"
     } else {

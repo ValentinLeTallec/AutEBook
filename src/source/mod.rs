@@ -26,7 +26,7 @@ pub fn from_url(url: &str) -> Box<dyn Download> {
     Box::new(Unsupported::from_url(url))
 }
 
-#[allow(clippy::map_unwrap_or)]
+#[expect(clippy::map_unwrap_or)]
 pub fn from_path(path: &Path) -> Box<dyn Download> {
     get_url(path)
         .map(|url| from_url(&url))
