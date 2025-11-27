@@ -1,5 +1,7 @@
 #[cfg(feature = "koreader")]
 mod koreader;
+mod parsing_utils;
+mod request;
 mod source;
 mod updater;
 

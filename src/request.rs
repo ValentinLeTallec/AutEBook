@@ -29,7 +29,7 @@ pub fn get_bytes(url: &str) -> Result<Bytes> {
 
 fn send_get_request_rec(url: &str) -> Result<Body> {
     static BOUNCE: AtomicU8 = AtomicU8::new(0);
-    #[allow(clippy::unwrap_used)]
+    #[expect(clippy::unwrap_used)]
     static RATE_LIMITER: LazyLock<DefaultKeyedRateLimiter<String>> = LazyLock::new(|| {
         RateLimiter::keyed(
             Quota::per_second(NonZeroU32::new(2u32).unwrap())

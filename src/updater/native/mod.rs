@@ -11,7 +11,6 @@ pub mod book;
 mod cache;
 mod epub;
 mod image;
-mod request;
 
 impl Download for Book {
     fn get_title(&self, _path: &Path) -> String {
