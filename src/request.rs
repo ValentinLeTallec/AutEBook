@@ -1,7 +1,7 @@
 use crate::{ErrorPrint, MULTI_PROGRESS};
 
 use bytes::Bytes;
-use eyre::{eyre, Result};
+use eyre::{eyre, Context, Result};
 use governor::{DefaultKeyedRateLimiter, Jitter, Quota, RateLimiter};
 use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -39,6 +39,7 @@ fn send_get_request_rec(url: &str) -> Result<Body> {
     static AGENT: LazyLock<Agent> = LazyLock::new(|| {
         Agent::config_builder()
             .user_agent("AutEBook <https://github.com/ValentinLeTallec/AutEBook>")
+            .http_status_as_error(false)
             .build()
             .into()
     });
@@ -64,11 +65,22 @@ fn send_get_request_rec(url: &str) -> Result<Body> {
         .call()
         .map_err(|e| eyre!("{e}, you might not be connected to the internet."))?;
 
-    if response.status() == StatusCode::TOO_MANY_REQUESTS && bounce <= 10 {
-        BOUNCE.fetch_add(1, Ordering::Relaxed);
-        send_get_request_rec(url)
-    } else {
-        BOUNCE.swap(0, Ordering::Relaxed);
-        Ok(response.into_body())
+    match response.status() {
+        StatusCode::TOO_MANY_REQUESTS if bounce <= 10 => {
+            BOUNCE.fetch_add(1, Ordering::Relaxed);
+            send_get_request_rec(url)
+        }
+
+        StatusCode::NOT_FOUND => Err(eyre!("Broken link : {url}")),
+
+        status if status.is_client_error() || status.is_server_error() => {
+            Err(eyre!("http status: {}", status))
+                .wrap_err_with(|| format!("Could not fetch from url : {url}"))
+        }
+
+        _ => {
+            BOUNCE.swap(0, Ordering::Relaxed);
+            Ok(response.into_body())
+        }
     }
 }

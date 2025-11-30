@@ -1,10 +1,12 @@
 #[cfg(feature = "fanficfare")]
 mod fanficfare;
 pub mod royalroad;
+use std::error::Error;
+use std::fmt;
 use std::path::Path;
 
 use epub::doc::EpubDoc;
-use eyre::{bail, Result};
+use eyre::Result;
 use royalroad::RoyalRoad;
 
 #[cfg(feature = "fanficfare")]
@@ -37,6 +39,7 @@ pub fn get_url(path: &Path) -> Option<String> {
     EpubDoc::new(path).ok().and_then(|e| e.mdata("source"))
 }
 
+#[derive(Debug, Clone)]
 pub struct Unsupported {
     message: String,
 }
@@ -58,13 +61,20 @@ impl Unsupported {
     }
 }
 
+impl Error for Unsupported {}
+impl fmt::Display for Unsupported {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
 impl WebnovelProvider for Unsupported {
     fn get_title(&self, _path: &Path) -> String {
         self.message.clone()
     }
 
     fn create(&self, _dir: &Path, _filename: Option<&str>, _url: &str) -> Result<String> {
-        bail!("This webnovel does not contain a supported source URL")
+        Err(self.clone().into())
     }
 
     fn update(&self, _path: &Path) -> UpdateResult {
