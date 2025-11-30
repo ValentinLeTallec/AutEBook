@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use derive_more::derive::Debug;
-use eyre::{eyre, Result};
+use eyre::{eyre, Context, Result};
 use lazy_regex::regex;
 use scraper::Html;
 use serde::{Deserialize, Serialize};
@@ -47,7 +47,9 @@ impl RoyalRoad {
         }
         let rss_url = fiction_url.replace(royalroyal_url, rss_url);
 
-        let rss_xml = match request::get_text(&rss_url) {
+        let rss_xml = match request::get_text(&rss_url).wrap_err_with(|| {
+            format!("Could not check RoyalRoad for updates from url : {royalroyal_url}")
+        }) {
             Ok(rss_xml) => rss_xml,
             Err(error) => {
                 MULTI_PROGRESS.eprintln(&error);

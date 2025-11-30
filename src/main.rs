@@ -142,7 +142,7 @@ fn create_books(dir: &Path, urls: &[String]) {
 
         match source::from_url(url).create(dir, None, url) {
             Ok(title) => bar.println(format!("{title:.50}\n")),
-            Err(e) => bar.println(summary!(e, url, red)),
+            Err(e) => bar.eprintln(&e),
         }
         bar.inc(1);
     });
