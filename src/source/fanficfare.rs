@@ -1,5 +1,7 @@
 use crate::updater::UpdateResult;
 use crate::updater::WebnovelProvider;
+use crate::ErrorPrint;
+use crate::MULTI_PROGRESS;
 
 use epub::doc::EpubDoc;
 use eyre::ContextCompat;
@@ -10,6 +12,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::sync::LazyLock;
 
 #[derive(Deserialize)]
 struct FanFicFareJson {
@@ -18,11 +21,27 @@ struct FanFicFareJson {
 
 pub struct FanFicFare;
 
+static FANFICFARE_INSTALLED: LazyLock<bool> = LazyLock::new(|| {
+    Command::new("fanficfare")
+        .arg("--version")
+        .spawn()
+        .inspect_err(|_| {
+            MULTI_PROGRESS.eprintln(&eyre!(
+                "fanficfare was not found (it needs to be installed separatly)"
+            ));
+        })
+        .is_ok()
+});
+
 impl FanFicFare {
     pub fn new(url: &str) -> Option<Self> {
-        URLS.iter()
-            .any(|compatible_url| url.contains(compatible_url))
-            .then_some(Self)
+        if *FANFICFARE_INSTALLED {
+            URLS.iter()
+                .any(|compatible_url| url.contains(compatible_url))
+                .then_some(Self)
+        } else {
+            None
+        }
     }
 }
 

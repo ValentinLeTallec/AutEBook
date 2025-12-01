@@ -236,13 +236,13 @@ pub trait ErrorPrint {
 }
 impl ErrorPrint for ProgressBar {
     fn eprintln(&self, msg: &Error) {
-        let msg = format!("{msg:}").red();
+        let msg = format!("{msg:?}\n").red();
         self.suspend(|| eprintln!("{msg}"));
     }
 }
 impl ErrorPrint for MultiProgress {
     fn eprintln(&self, msg: &Error) {
-        let msg = format!("{msg:}").red();
+        let msg = format!("{msg:?}\n").red();
         self.suspend(|| eprintln!("{msg}"));
     }
 }

@@ -1,0 +1,2 @@
+2025-11-25 refacto image : faire confiance à la crate image
+2025-11-25 fff : passer Skipped & MoreChapterThanSource(u16) en erreur

@@ -14,7 +14,7 @@ name = "autebooks"
 path = "src/main.rs"
 
 [features]
-default = ["koreader"]
+default = ["koreader", "fanficfare"]
 fanficfare = []
 koreader = []
 
@@ -27,7 +27,10 @@ opt-level = 3
 chrono = { version = "0.4.42", features = ["serde"] }
 clap = { version = "4.5.51", features = ["derive"] }
 clap_complete = "4.5.60"
-eyre = "0.6.12"
+eyre = { version = "0.6.12", default-features = false, features = [
+  "auto-install",
+  "track-caller",
+] }
 colorful = "0.3.2"
 epub = "=2.1.4"
 indicatif = { version = "0.18.2", features = ["rayon"] }
@@ -66,3 +69,4 @@ use_debug = "warn"
 # missing_docs_in_private_items = "warn"
 
 multiple_crate_versions = { level = "allow", priority = 1 }
+# allowed-duplicate-crates = ["hashbrown", "rand", "windows-sys"]
